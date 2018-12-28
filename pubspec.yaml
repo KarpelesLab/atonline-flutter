@@ -1,8 +1,8 @@
 name: atonline_flutter
 description: AtOnline API tools for Flutter
 version: 0.0.1
-author:
-homepage:
+author: Tristan Technologies, Inc
+homepage: https://www.atonline.com/
 
 environment:
   sdk: ">=2.0.0-dev.68.0 <3.0.0"
