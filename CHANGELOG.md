@@ -1,3 +1,3 @@
-## [0.0.1] - TODO: Add release date.
+## [0.0.1] - December 29th 2018
 
-* TODO: Describe initial release.
+* Initial release with API, user & links code.
