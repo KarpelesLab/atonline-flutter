@@ -70,17 +70,7 @@ class Links {
   void processLink(String link) {
     print("got link = $link");
     Uri l = Uri.parse(link);
-    if (acceptableProto[l.scheme] == null) return;
-    // extract first element of path
-    String e = l.path;
-    while (e[0] == '/') {
-      e = e.substring(1);
-    }
-    int pos = e.indexOf("/");
-    if (pos > 0) {
-      e = e.substring(0, pos);
-    }
-    _fireNotification(e, l);
+    _fireNotification(link, l);
   }
 
   Future<Null> _init() async {
