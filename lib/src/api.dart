@@ -37,11 +37,18 @@ class AtOnline {
   final String appId;
   final String prefix;
   final String authEndpoint;
+  static Map<String, AtOnline> _instances = {};
 
-  AtOnline(this.appId,
-      {this.prefix = "https://hub.atonline.com/_special/rest/",
-      this.authEndpoint =
-          "https://hub.atonline.com/_special/rest/OAuth2:auth"}) {
+  factory AtOnline(appId,
+      {prefix = "https://hub.atonline.com/_special/rest/",
+      authEndpoint = "https://hub.atonline.com/_special/rest/OAuth2:auth"}) {
+    if (!_instances.containsKey(appId))
+      _instances[appId] = new AtOnline._internal(appId, prefix, authEndpoint);
+
+    return _instances[appId];
+  }
+
+  AtOnline._internal(this.appId, this.prefix, this.authEndpoint) {
     Links().acceptableProto[appId] = true;
   }
 
