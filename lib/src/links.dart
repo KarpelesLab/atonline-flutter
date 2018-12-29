@@ -5,7 +5,7 @@ import 'package:uni_links/uni_links.dart';
 typedef void LinkListener(Uri link);
 
 class Links {
-  static Links _instance;
+  static Links _instance = new Links._internal();
   Map<String, ObserverList<LinkListener>> _listeners = {};
   Map<String, bool> acceptableProto = {"https": true};
 
@@ -15,10 +15,8 @@ class Links {
 
   Links._internal();
 
-  static Future<Links> init() async {
-    _instance = new Links._internal();
+  static Future<void> init() async {
     await _instance._init();
-    return _instance;
   }
 
   void addListener(String prefix, LinkListener listener) {
