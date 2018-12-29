@@ -48,9 +48,7 @@ class AtOnline {
     return _instances[appId];
   }
 
-  AtOnline._internal(this.appId, this.prefix, this.authEndpoint) {
-    Links().acceptableProto[appId] = true;
-  }
+  AtOnline._internal(this.appId, this.prefix, this.authEndpoint);
 
   final storage = new FlutterSecureStorage();
   final ObserverList<VoidCallback> _listeners = ObserverList<VoidCallback>();

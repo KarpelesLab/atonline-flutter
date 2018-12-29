@@ -7,7 +7,6 @@ typedef void LinkListener(Uri link);
 class Links {
   static Links _instance = new Links._internal();
   Map<String, ObserverList<LinkListener>> _listeners = {};
-  Map<String, bool> acceptableProto = {"https": true};
 
   factory Links() {
     return _instance;
@@ -37,9 +36,21 @@ class Links {
   }
 
   void _fireNotification(String prefix, Uri link) {
-    if (!_listeners.containsKey(prefix)) {
-      return;
+    while (!_listeners.containsKey(prefix)) {
+      if (prefix.length < 8) return;
+
+      // get rid of any "/" suffix
+      while(prefix[prefix.length-1] == '/')
+        prefix = prefix.substring(0, prefix.length - 1);
+
+      // find last /
+      int pos = prefix.lastIndexOf('/');
+      if (pos == -1) return;
+
+      // update prefix
+      prefix = prefix.substring(0, pos);
     }
+
     final List<LinkListener> localListeners =
         List<LinkListener>.from(_listeners[prefix]);
 
