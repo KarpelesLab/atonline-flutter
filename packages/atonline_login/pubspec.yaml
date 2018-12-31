@@ -1,0 +1,27 @@
+name: atonline_login
+description: Client-side login page for applications using AtOnline apis and custom realms
+version: 0.0.1
+author: Tristan Technologies, Inc <contact@tristantechnologies.com>
+homepage: https://github.com/AtOnline/atonline-flutter
+
+environment:
+  sdk: ">=2.0.0-dev.68.0 <3.0.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  material_design_icons_flutter: 3.0.3289
+  crypto: ^2.0.6
+  url_launcher: ^4.0.3 # flutter team
+  atonline_api: ^0.0.3
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+
+# For information on the generic Dart part of this file, see the
+# following page: https://www.dartlang.org/tools/pub/pubspec
+
+# The following section is specific to Flutter.
+flutter:
