@@ -1,4 +1,4 @@
-name: atonline_flutter
+name: atonline_api
 description: AtOnline API tools for Flutter, for use with AtOnline.com APIs including CMS, Naka, etc.
 version: 0.0.2
 author: Tristan Technologies, Inc <contact@tristantechnologies.com>
