@@ -14,6 +14,7 @@ class Links {
 
   Links._internal();
 
+  // this method needs to be called after adding listeners for your app
   static Future<void> init() async {
     await _instance._init();
   }
@@ -36,15 +37,21 @@ class Links {
   }
 
   void _fireNotification(String prefix, Uri link) {
+    int pos = prefix.indexOf('?');
+    if (pos != -1) {
+      // need to remove query string from url
+      prefix = prefix.substring(0, pos);
+    }
+
     while (!_listeners.containsKey(prefix)) {
       if (prefix.length < 8) return;
 
       // get rid of any "/" suffix
-      while(prefix[prefix.length-1] == '/')
+      while (prefix[prefix.length - 1] == '/')
         prefix = prefix.substring(0, prefix.length - 1);
 
       // find last /
-      int pos = prefix.lastIndexOf('/');
+      pos = prefix.lastIndexOf('/');
       if (pos == -1) return;
 
       // update prefix
@@ -68,7 +75,6 @@ class Links {
   }
 
   void processLink(String link) {
-    print("got link = $link");
     Uri l = Uri.parse(link);
     _fireNotification(link, l);
   }

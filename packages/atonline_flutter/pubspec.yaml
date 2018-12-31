@@ -1,0 +1,31 @@
+name: atonline_flutter
+description: AtOnline API tools for Flutter, for use with AtOnline.com APIs including CMS, Naka, etc.
+version: 0.0.3
+author: Tristan Technologies, Inc <contact@tristantechnologies.com>
+homepage: https://github.com/AtOnline/atonline-flutter
+
+environment:
+  sdk: ">=2.0.0-dev.68.0 <3.0.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_localizations:
+    sdk: flutter
+
+  http: ^0.12.0
+  mime: ^0.9.6+2
+  flutter_secure_storage: ^3.1.2
+  url_launcher: ^4.0.3
+  uni_links: ^0.1.4
+  intl: ^0.15.7
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+
+# For information on the generic Dart part of this file, see the
+# following page: https://www.dartlang.org/tools/pub/pubspec
+
+# The following section is specific to Flutter.
+flutter:
