@@ -1,4 +1,4 @@
-library atonline_flutter;
+library atonline_api;
 
 export 'src/api.dart';
 export 'src/links.dart';

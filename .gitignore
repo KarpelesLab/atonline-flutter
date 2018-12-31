@@ -4,7 +4,9 @@
 .packages
 .pub/
 
-build/
-ios/.generated/
-ios/Flutter/Generated.xcconfig
-ios/Runner/GeneratedPluginRegistrant.*
+.idea/
+
+packages/*/build/
+packages/*/ios/.generated/
+packages/*/ios/Flutter/Generated.xcconfig
+packages/*/ios/Runner/GeneratedPluginRegistrant.*
