@@ -307,7 +307,17 @@ class _AtOnlineLoginPageBodyState extends State<AtOnlineLoginPageBody> {
           switch (info["type"]) {
             case "label":
               // need to show a label
-              if (info["label"] != null) l.add(Text(info["label"].toString()));
+              if (info["link"] == null) {
+                l.add(Text(info["label"].toString()));
+              } else {
+                l.add(GestureDetector(
+                  onTap: () => launch(info["link"]),
+                  child: Text(
+                    info["label"].toString(),
+                    style: TextStyle(decoration: TextDecoration.underline),
+                  ),
+                ));
+              }
               l.add(Container(height: 15));
               break;
             case "email":
