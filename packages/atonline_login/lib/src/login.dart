@@ -1,8 +1,6 @@
-import 'dart:convert';
 import 'dart:math';
 
 import 'package:atonline_api/atonline_api.dart';
-import 'package:crypto/crypto.dart';
 import 'package:flutter/material.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -22,7 +20,7 @@ class _AtOnlineLoginPageBodyState extends State<AtOnlineLoginPageBody> {
   bool busy = true;
   bool canReset = false;
   String session = "";
-  String oauthCodeVerifier;
+  String _clientSessionId; // random string used to identify progress in session
   Map<String, TextEditingController> fields;
   static const oauth2PerLine = 6;
 
@@ -36,7 +34,7 @@ class _AtOnlineLoginPageBodyState extends State<AtOnlineLoginPageBody> {
   @override
   void initState() {
     _submitData();
-    oauthCodeVerifier = String.fromCharCodes(
+    _clientSessionId = String.fromCharCodes(
         List.generate(64, (index) => _randomBetween(33, 126)));
     Links().addListener(widget.redirectUri, _loginListener);
     super.initState();
@@ -49,53 +47,37 @@ class _AtOnlineLoginPageBodyState extends State<AtOnlineLoginPageBody> {
   }
 
   void _loginListener(Uri l) async {
-    print("got link call");
+    await closeWebView();
+
     var qp = l.queryParameters;
-    if (qp["code"] == null) {
+    if (qp["session"] == null) {
       // cancel
       // TODO handle errors?
-      await closeWebView();
       Navigator.of(context).pop();
       return;
     }
 
-    // we got a code, fetch the matching auth info
-    var auth = await widget.api.req("OAuth2:token",
-        method: "POST",
-        skipDecode: true,
-        body: <String, String>{
-          "client_id": widget.api.appId,
-          "grant_type": "authorization_code",
-          "redirect_uri": widget.redirectUri,
-          "code": qp["code"],
-          "code_verifier": "hello_world",
-        });
-    await widget.api.storeToken(auth);
-    await widget.api.user.fetchLogin();
-
-    if (widget.api.user.isLoggedIn()) {
-      print("closing view");
-      await closeWebView();
-      print("close complete");
-      Navigator.of(context).pop();
-      Navigator.of(context).pushReplacementNamed("/home");
-    } else {
-      await closeWebView();
-      Navigator.of(context).pop();
-    }
+    // refresh this new session
+    session = qp["session"];
+    _submitData(override: {}); // send empty form
   }
 
-  void _submitData() async {
+  void _submitData({Map<String, String> override}) async {
     var body = <String, String>{
       "client_id": widget.api.appId,
       "image_variation": User.imageVariation,
       "session": session,
+      "client_sid": _clientSessionId,
     };
     if (session != "") {
       canReset = true;
     }
 
-    if (fields != null) {
+    if (override != null) {
+      override.forEach((k, v) {
+        body[k] = v;
+      });
+    } else if (fields != null) {
       fields.forEach((field, c) {
         body[field] = c.text;
       });
@@ -130,6 +112,15 @@ class _AtOnlineLoginPageBodyState extends State<AtOnlineLoginPageBody> {
       } else {
         // show error?
       }
+    }
+
+    if (res["url"] != null) {
+      // special case → open given url, do nothing else
+      launch(res["url"]);
+      setState(() {
+        busy = false;
+      });
+      return;
     }
 
     setState(() {
@@ -215,35 +206,8 @@ class _AtOnlineLoginPageBodyState extends State<AtOnlineLoginPageBody> {
   }
 
   void _doOAuth2Login(dynamic info) async {
-    setState(() {
-      busy = true;
-    });
-
-    String code = "hello_world";
-    String codeS256 = base64UrlEncode(sha256.convert(utf8.encode(code)).bytes);
-
-    // grab info
-    var res;
-    try {
-      res = await widget.api
-          .req("OAuth2/Consumer/" + info["id"] + ":auth", body: {
-        "client_id": widget.api.appId,
-        "redirect_uri": widget.redirectUri,
-        "code_challenge": codeS256,
-        "code_challenge_method": "S256",
-      });
-    } catch (e) {
-      setState(() {
-        busy = false;
-      });
-      return;
-    }
-
-    await launch(res["url"]);
-
-    setState(() {
-      busy = false;
-    });
+    _submitData(
+        override: {"oauth2": info["id"], "redirect_uri": widget.redirectUri});
   }
 
   @override
