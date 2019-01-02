@@ -2,6 +2,7 @@ package io.flutter.plugins;
 
 import io.flutter.plugin.common.PluginRegistry;
 import com.it_nomads.fluttersecurestorage.FlutterSecureStoragePlugin;
+import io.flutter.plugins.imagepicker.ImagePickerPlugin;
 import name.avioli.unilinks.UniLinksPlugin;
 import io.flutter.plugins.urllauncher.UrlLauncherPlugin;
 
@@ -14,6 +15,7 @@ public final class GeneratedPluginRegistrant {
       return;
     }
     FlutterSecureStoragePlugin.registerWith(registry.registrarFor("com.it_nomads.fluttersecurestorage.FlutterSecureStoragePlugin"));
+    ImagePickerPlugin.registerWith(registry.registrarFor("io.flutter.plugins.imagepicker.ImagePickerPlugin"));
     UniLinksPlugin.registerWith(registry.registrarFor("name.avioli.unilinks.UniLinksPlugin"));
     UrlLauncherPlugin.registerWith(registry.registrarFor("io.flutter.plugins.urllauncher.UrlLauncherPlugin"));
   }

@@ -1,9 +1,12 @@
+import 'dart:io';
 import 'dart:math';
 
 import 'package:atonline_api/atonline_api.dart';
 import 'package:flutter/material.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
+
+import 'imagepicker.dart';
 
 class AtOnlineLoginPageBody extends StatefulWidget {
   final String redirectUri;
@@ -22,6 +25,8 @@ class _AtOnlineLoginPageBodyState extends State<AtOnlineLoginPageBody> {
   String session = "";
   String _clientSessionId; // random string used to identify progress in session
   Map<String, TextEditingController> fields;
+  Map<String, File> _files = {};
+  Map<String, dynamic> _fileFields = {}; // fields about files (which are set)
   static const oauth2PerLine = 6;
 
   /// Generates a random integer where [from] <= [to].
@@ -102,14 +107,30 @@ class _AtOnlineLoginPageBodyState extends State<AtOnlineLoginPageBody> {
 
     if (res["complete"]) {
       // we got a login!
-      await widget.api.storeToken(res["Token"]);
-      await widget.api.user.fetchLogin();
+      try {
+        await widget.api.storeToken(res["Token"]);
+        await widget.api.user.fetchLogin();
 
-      if (widget.api.user.isLoggedIn()) {
-        Navigator.of(context).pop();
-        Navigator.of(context).pushReplacementNamed("/home");
-        return;
-      } else {
+        if (widget.api.user.isLoggedIn()) {
+          // perform files
+          if (_files.length > 0) {
+            var futures = <Future>[];
+            _files.forEach((k, f) {
+              var fi = _fileFields[k];
+              futures.add(
+                  widget.api.authReqUpload(fi["target"], f, body: fi["param"]));
+            });
+            await Future.wait(futures);
+
+            await widget.api.user.fetchLogin(); // once again with love
+          }
+          Navigator.of(context).pop();
+          Navigator.of(context).pushReplacementNamed("/home");
+          return;
+        } else {
+          // show error?
+        }
+      } catch (e) {
         // show error?
       }
     }
@@ -350,6 +371,15 @@ class _AtOnlineLoginPageBodyState extends State<AtOnlineLoginPageBody> {
             case "oauth2":
               oauth2.add(GridTile(
                 child: _makeOAuth2Button(info),
+              ));
+              break;
+            case "image":
+              if (info["label"] != null) l.add(Text(info["label"].toString()));
+              l.add(ImagePickerWidget(
+                onChange: (img) {
+                  _files[info["name"]] = img;
+                  _fileFields[info["name"]] = info;
+                },
               ));
               break;
             default:
