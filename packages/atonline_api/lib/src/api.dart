@@ -258,7 +258,7 @@ class AtOnline {
 
     // need a new token
     String ref = await storage.read(key: "refresh_token");
-    if (ref == "") {
+    if ((ref == null) || (ref == "")) {
       // user is not logged in or we don't have a refresh_token, need to have user login again
       if (tokenV != "") {
         tokenV = "";
