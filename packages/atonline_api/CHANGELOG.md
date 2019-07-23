@@ -1,3 +1,7 @@
+## [0.1.1] - July 23rd 2019
+
+* Fix for flutter 1.2+
+
 ## [0.1.0] - March 19th 2019
 
 * AndroidX upgrade (dependency version bump)
