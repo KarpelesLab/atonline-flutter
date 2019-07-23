@@ -339,7 +339,7 @@ class AtOnline {
           exception: exception,
           stack: stack,
           library: 'Api library',
-          context: 'while notifying listeners for Api',
+          context: DiagnosticsNode.message('while notifying listeners for Api'),
         ));
       }
     }

@@ -68,7 +68,7 @@ class Links {
         FlutterError.reportError(FlutterErrorDetails(
           exception: exception,
           stack: stack,
-          context: 'while notifying listeners for link action',
+          context: DiagnosticsNode.message('while notifying listeners for link action'),
         ));
       }
     }

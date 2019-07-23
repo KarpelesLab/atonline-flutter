@@ -113,7 +113,8 @@ class User {
           exception: exception,
           stack: stack,
           library: 'User library',
-          context: 'while notifying listeners for User login',
+          context: DiagnosticsNode.message(
+              'while notifying listeners for User login'),
         ));
       }
     }
