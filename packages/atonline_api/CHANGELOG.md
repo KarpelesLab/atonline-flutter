@@ -1,3 +1,7 @@
+## [0.2.1] - August 16th 2019
+
+* Make AtOnlineApiResult iterable
+
 ## [0.2.0] - August 16th 2019
 
 * Add AtOnlineApiResult object to simplify Api result data access
