@@ -66,7 +66,7 @@ class AtOnlineApiResult extends Iterable<dynamic>{
           int.parse(this.res["paging"]["count"].toString()),
           int.parse(this.res["paging"]["page_max"].toString()),
           int.parse(this.res["paging"]["page_no"].toString()),
-          int.parse(this.res["paging"]["results_per_page".toString()])
+          int.parse(this.res["paging"]["results_per_page"].toString())
       );
     }
 

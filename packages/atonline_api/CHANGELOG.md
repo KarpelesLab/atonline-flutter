@@ -1,3 +1,7 @@
+## [0.2.2] - August 16th 2019
+
+* Fix AtOnlineApiResult
+
 ## [0.2.1] - August 16th 2019
 
 * Make AtOnlineApiResult iterable
