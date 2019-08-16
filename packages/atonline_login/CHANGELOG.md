@@ -1,3 +1,7 @@
+## [0.2.0] - August 16th 2019
+
+* Upgraded atonline_api dep
+
 ## [0.1.0] - March 19th 2019
 
 * AndroidX upgrade (dependency version bump)
