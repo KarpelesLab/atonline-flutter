@@ -30,6 +30,44 @@ class AtOnlinePlatformException implements Exception {
   AtOnlinePlatformException(this.data);
 }
 
+class AtOnlinePaging {
+  int count;
+  int pageMax;
+  int pageNumber;
+  int resultPerPage;
+
+  AtOnlinePaging(this.count, this.pageMax, this.pageNumber, this.resultPerPage);
+}
+
+class AtOnlineApiResult {
+  dynamic res;
+  AtOnlinePaging paging;
+  double time;
+  String result;
+
+  AtOnlineApiResult(this.res) {
+    if(this.res.containsKey("paging")) {
+      this.paging = new AtOnlinePaging(
+          this.res["paging"]["count"],
+          this.res["paging"]["page_max"],
+          this.res["paging"]["page_no"],
+          this.res["paging"]["results_per_page"]
+      );
+    }
+
+    if(this.res.containsKey("time")) this.time = res["time"];
+    if(this.res.containsKey("result")) this.result = res["result"];
+  }
+
+  dynamic operator [](String key) {
+    if(key.startsWith("@")){
+      return res[key.substring(1)];
+    }
+
+    return res["data"][key];
+  }
+}
+
 typedef void ProgressCallback(double status);
 
 class AtOnline {
@@ -157,7 +195,7 @@ class AtOnline {
       throw new AtOnlinePlatformException(d);
     }
 
-    return d["data"];
+    return  new AtOnlineApiResult(d);
   }
 
   Future<dynamic> authReq(String path,
