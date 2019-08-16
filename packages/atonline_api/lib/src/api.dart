@@ -44,7 +44,7 @@ class AtOnlineApiResult extends Iterable<dynamic>{
   AtOnlinePaging paging;
   double time;
   String result;
-  dynamic get data => res["@data"];
+  dynamic get data => res["data"];
 
   // Used when data is a key/values pair and not accessible by index.
   dynamic _iterableValue;

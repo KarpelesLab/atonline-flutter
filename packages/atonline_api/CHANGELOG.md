@@ -1,3 +1,7 @@
+## [0.2.3] - August 16th 2019
+
+* Fix AtOnlineApiResult data accessor
+
 ## [0.2.2] - August 16th 2019
 
 * Fix AtOnlineApiResult
