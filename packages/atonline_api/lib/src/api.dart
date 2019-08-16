@@ -39,19 +39,34 @@ class AtOnlinePaging {
   AtOnlinePaging(this.count, this.pageMax, this.pageNumber, this.resultPerPage);
 }
 
-class AtOnlineApiResult {
+class AtOnlineApiResult extends Iterable<dynamic>{
   dynamic res;
   AtOnlinePaging paging;
   double time;
   String result;
+  dynamic get data => res["@data"];
+
+  // Used when data is a key/values pair and not accessible by index.
+  dynamic _iterableValue;
+
+  Iterator<dynamic> get iterator {
+    if(this.data is Map) {
+      if(_iterableValue == null) {_iterableValue = this.data.values;}
+      return _iterableValue.iterator;
+    }else if(this.data is Iterable) {
+      return this.data.iterator;
+    }
+
+    throw new Exception("AtOnlineApiResult are not iterable");
+  }
 
   AtOnlineApiResult(this.res) {
     if(this.res.containsKey("paging")) {
       this.paging = new AtOnlinePaging(
-          this.res["paging"]["count"],
-          this.res["paging"]["page_max"],
-          this.res["paging"]["page_no"],
-          this.res["paging"]["results_per_page"]
+          int.parse(this.res["paging"]["count"].toString()),
+          int.parse(this.res["paging"]["page_max"].toString()),
+          int.parse(this.res["paging"]["page_no"].toString()),
+          int.parse(this.res["paging"]["results_per_page".toString()])
       );
     }
 
