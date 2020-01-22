@@ -1,3 +1,7 @@
+## [0.2.5] January 22nd 2020
+
+* Added support for context override in api
+
 ## [0.2.4] January 22nd 2020
 
 * Upgrade dependencies for recent flutter
