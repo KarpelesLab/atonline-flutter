@@ -39,7 +39,7 @@ class AtOnlinePaging {
   AtOnlinePaging(this.count, this.pageMax, this.pageNumber, this.resultPerPage);
 }
 
-class AtOnlineApiResult extends Iterable<dynamic>{
+class AtOnlineApiResult extends Iterable<dynamic> {
   dynamic res;
   AtOnlinePaging paging;
   double time;
@@ -50,10 +50,12 @@ class AtOnlineApiResult extends Iterable<dynamic>{
   dynamic _iterableValue;
 
   Iterator<dynamic> get iterator {
-    if(this.data is Map) {
-      if(_iterableValue == null) {_iterableValue = this.data.values;}
+    if (this.data is Map) {
+      if (_iterableValue == null) {
+        _iterableValue = this.data.values;
+      }
       return _iterableValue.iterator;
-    }else if(this.data is Iterable) {
+    } else if (this.data is Iterable) {
       return this.data.iterator;
     }
 
@@ -61,21 +63,20 @@ class AtOnlineApiResult extends Iterable<dynamic>{
   }
 
   AtOnlineApiResult(this.res) {
-    if(this.res.containsKey("paging")) {
+    if (this.res.containsKey("paging")) {
       this.paging = new AtOnlinePaging(
           int.parse(this.res["paging"]["count"].toString()),
           int.parse(this.res["paging"]["page_max"].toString()),
           int.parse(this.res["paging"]["page_no"].toString()),
-          int.parse(this.res["paging"]["results_per_page"].toString())
-      );
+          int.parse(this.res["paging"]["results_per_page"].toString()));
     }
 
-    if(this.res.containsKey("time")) this.time = res["time"];
-    if(this.res.containsKey("result")) this.result = res["result"];
+    if (this.res.containsKey("time")) this.time = res["time"];
+    if (this.res.containsKey("result")) this.result = res["result"];
   }
 
   dynamic operator [](String key) {
-    if(key.startsWith("@")){
+    if (key.startsWith("@")) {
       return res[key.substring(1)];
     }
 
@@ -121,6 +122,7 @@ class AtOnline {
       {String method = "GET",
       dynamic body,
       Map<String, String> headers,
+      Map<String, String> context,
       bool skipDecode = false}) async {
     print("Running $method $path");
 
@@ -129,6 +131,10 @@ class AtOnline {
     var _ctx = <String, String>{};
 
     _ctx["_ctx[l]"] = Intl.defaultLocale;
+
+    if (context != null) {
+      context.forEach((k, v) => _ctx["_ctx[" + k + "]"] = v);
+    }
 
     Uri urlPath = Uri.parse(prefix + path);
     urlPath = Uri(
@@ -210,36 +216,41 @@ class AtOnline {
       throw new AtOnlinePlatformException(d);
     }
 
-    return  new AtOnlineApiResult(d);
+    return new AtOnlineApiResult(d);
   }
 
   Future<dynamic> authReq(String path,
       {String method = "GET",
       dynamic body,
-      Map<String, String> headers}) async {
+      Map<String, String> headers,
+      Map<String, String> context}) async {
     if (headers == null) {
       headers = <String, String>{};
     }
     headers["Authorization"] = "Bearer " + await token();
-    return req(path, method: method, body: body, headers: headers);
+    return req(path,
+        method: method, body: body, headers: headers, context: context);
   }
 
   Future<dynamic> optAuthReq(String path,
       {String method = "GET",
       dynamic body,
-      Map<String, String> headers}) async {
+      Map<String, String> headers,
+      Map<String, String> context}) async {
     try {
       if (headers == null) {
         headers = <String, String>{};
       }
       headers["Authorization"] = "Bearer " + await token();
     } on AtOnlineLoginException {} on AtOnlinePlatformException {}
-    return req(path, method: method, body: body, headers: headers);
+    return req(path,
+        method: method, body: body, headers: headers, context: context);
   }
 
   Future<dynamic> authReqUpload(String path, File f,
       {Map<String, dynamic> body,
       Map<String, String> headers,
+      Map<String, String> context,
       ProgressCallback progress}) async {
     var mime = lookupMimeType(f.path) ?? "application/octet-stream";
     var size = await f.length();
@@ -252,7 +263,7 @@ class AtOnline {
     body["size"] = size;
 
     // first, get upload ready
-    var res = await authReq(path, method: "POST", body: body);
+    var res = await authReq(path, method: "POST", body: body, context: context);
 
     var r = http.StreamedRequest("PUT", Uri.parse(res["PUT"]));
     r.contentLength = size; // required so upload is not chunked
@@ -283,7 +294,7 @@ class AtOnline {
     }
 
     // call finalize, return response
-    return await req(res["Complete"], method: "POST");
+    return await req(res["Complete"], method: "POST", context: context);
   }
 
   Future<String> token() async {
