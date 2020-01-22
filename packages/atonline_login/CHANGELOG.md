@@ -1,3 +1,7 @@
+## [0.2.1] - January 22nd 2020
+
+* Upgraded dependencies and pubspec to recent flutter
+
 ## [0.2.0] - August 16th 2019
 
 * Upgraded atonline_api dep
