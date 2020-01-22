@@ -1,3 +1,7 @@
+## [0.2.4] January 22nd 2020
+
+* Upgrade dependencies for recent flutter
+
 ## [0.2.3] - August 16th 2019
 
 * Fix AtOnlineApiResult data accessor
