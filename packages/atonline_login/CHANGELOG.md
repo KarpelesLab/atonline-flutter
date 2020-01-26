@@ -1,3 +1,7 @@
+## [0.2.2] - January 26th 2020
+
+* Adding support for server-defined buttons, using SVG icons
+
 ## [0.2.1] - January 22nd 2020
 
 * Upgraded dependencies and pubspec to recent flutter

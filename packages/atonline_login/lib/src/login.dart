@@ -3,10 +3,50 @@ import 'dart:math';
 
 import 'package:atonline_api/atonline_api.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import 'imagepicker.dart';
+
+extension HexColor on Color {
+  /// String is in the format "abc" "aabbcc" or "ffaabbcc" with an optional leading "#".
+  static Color fromHex(String hexString) {
+    if (hexString.startsWith("#")) {
+      hexString = hexString.substring(1);
+    }
+
+    switch (hexString.length) {
+      case 6:
+        hexString = "ff" + hexString;
+        break;
+      case 8:
+        // (all good)
+        break;
+      case 3:
+        hexString = "ff" +
+            hexString[0] +
+            hexString[0] +
+            hexString[1] +
+            hexString[1] +
+            hexString[2] +
+            hexString[2];
+        break;
+      default:
+        // fail.
+        return Color(0);
+    }
+
+    return Color(int.parse(hexString, radix: 16));
+  }
+
+  /// Prefixes a hash sign if [leadingHashSign] is set to `true` (default is `true`).
+  String toHex({bool leadingHashSign = true}) => '${leadingHashSign ? '#' : ''}'
+      '${alpha.toRadixString(16).padLeft(2, '0')}'
+      '${red.toRadixString(16).padLeft(2, '0')}'
+      '${green.toRadixString(16).padLeft(2, '0')}'
+      '${blue.toRadixString(16).padLeft(2, '0')}';
+}
 
 class AtOnlineLoginPageBody extends StatefulWidget {
   final String redirectUri;
@@ -160,47 +200,67 @@ class _AtOnlineLoginPageBodyState extends State<AtOnlineLoginPageBody> {
     Widget chld = Text(info["info"]["Name"], textAlign: TextAlign.center);
     Color col = Theme.of(context).primaryColor;
 
-    switch (info["info"]["Token_Name"]) {
-      case "google":
-        chld = LayoutBuilder(
-            builder: (context, constraint) => Icon(MdiIcons.google,
-                size: constraint.biggest.height * 0.6, color: Colors.white));
-
-        col = Color(0xffDB4437);
-
-        break;
-      case "facebook":
-        chld = LayoutBuilder(
-            builder: (context, constraint) => Icon(MdiIcons.facebook,
-                size: constraint.biggest.height * 0.6, color: Colors.white));
-        col = Color(0xff3C5A99);
-        break;
-      case "twitter":
-        chld = LayoutBuilder(
-            builder: (context, constraint) => Icon(MdiIcons.twitter,
-                size: constraint.biggest.height * 0.6, color: Colors.white));
-        col = Color(0xff1da1f2);
-        break;
-      case "yahoo_japan":
-        chld = Container(
-            margin: EdgeInsets.all(5),
-            child: Image.asset(
-              "assets/Yahoo_Favicon_1997.png",
-            ));
-        col = Colors.white;
-        break;
-      case "amazon":
-        chld = LayoutBuilder(
-            builder: (context, constraint) => Icon(MdiIcons.amazon,
-                size: constraint.biggest.height * 0.6, color: Colors.white));
-        col = Color(0xffFF9900);
-        break;
-      case "reddit":
-        chld = LayoutBuilder(
-            builder: (context, constraint) => Icon(MdiIcons.reddit,
-                size: constraint.biggest.height * 0.6, color: Colors.white));
-        col = Color(0xffFF4500);
-        break;
+    if (!(info["button"]?.isEmpty ?? true)) {
+      // we have a new style button, use it. info/button/logo should be a data uri
+      chld = LayoutBuilder(
+          builder: (context, constraint) => SvgPicture.network(
+                info["button"]["logo"],
+                height: constraint.biggest.height * 0.6,
+              ));
+      col = HexColor.fromHex(info["button"]["background-color"]);
+    } else {
+      switch (info["info"]["Token_Name"]) {
+        case "google":
+          chld = LayoutBuilder(
+              builder: (context, constraint) => Icon(MdiIcons.google,
+                  size: constraint.biggest.height * 0.6, color: Colors.white));
+          col = Color(0xffDB4437);
+          break;
+        case "facebook":
+          chld = LayoutBuilder(
+              builder: (context, constraint) => Icon(MdiIcons.facebook,
+                  size: constraint.biggest.height * 0.6, color: Colors.white));
+          col = Color(0xff3C5A99);
+          break;
+        case "twitter":
+          chld = LayoutBuilder(
+              builder: (context, constraint) => Icon(MdiIcons.twitter,
+                  size: constraint.biggest.height * 0.6, color: Colors.white));
+          col = Color(0xff1da1f2);
+          break;
+        case "yahoo_japan":
+          chld = Container(
+              margin: EdgeInsets.all(5),
+              child: Image.asset(
+                "assets/Yahoo_Favicon_1997.png",
+              ));
+          col = Colors.white;
+          break;
+        case "amazon":
+          chld = LayoutBuilder(
+              builder: (context, constraint) => Icon(MdiIcons.amazon,
+                  size: constraint.biggest.height * 0.6, color: Colors.white));
+          col = Color(0xffFF9900);
+          break;
+        case "reddit":
+          chld = LayoutBuilder(
+              builder: (context, constraint) => Icon(MdiIcons.reddit,
+                  size: constraint.biggest.height * 0.6, color: Colors.white));
+          col = Color(0xffFF4500);
+          break;
+        case "line":
+          chld = LayoutBuilder(
+              builder: (context, constraint) => Icon(MdiIcons.chat,
+                  size: constraint.biggest.height * 0.6, color: Colors.white));
+          col = Color(0xff00c300);
+          break;
+        case "apple":
+          chld = LayoutBuilder(
+              builder: (context, constraint) => Icon(MdiIcons.apple,
+                  size: constraint.biggest.height * 0.6, color: Colors.white));
+          col = Color(0xff000000);
+          break;
+      }
     }
 
     Widget btn = Container(
