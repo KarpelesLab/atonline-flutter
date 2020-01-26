@@ -204,10 +204,11 @@ class _AtOnlineLoginPageBodyState extends State<AtOnlineLoginPageBody> {
       // we have a new style button, use it. info/button/logo should be a data uri
       if (info["button"]["logo"].startsWith("data:")) {
         // parse data uri
-        var data = UriData.fromString(info["button"]["logo"]);
+        var data = UriData.parse(info["button"]["logo"]);
+        var svgdata = data.contentAsString();
         chld = LayoutBuilder(
-            builder: (context, constraint) => SvgPicture.memory(
-                  data.contentAsBytes(),
+            builder: (context, constraint) => SvgPicture.string(
+                  svgdata,
                   height: constraint.biggest.height * 0.6,
                 ));
       } else {
