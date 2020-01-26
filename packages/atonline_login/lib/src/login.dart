@@ -202,11 +202,21 @@ class _AtOnlineLoginPageBodyState extends State<AtOnlineLoginPageBody> {
 
     if (!(info["button"]?.isEmpty ?? true)) {
       // we have a new style button, use it. info/button/logo should be a data uri
-      chld = LayoutBuilder(
-          builder: (context, constraint) => SvgPicture.network(
-                info["button"]["logo"],
-                height: constraint.biggest.height * 0.6,
-              ));
+      if (info["button"]["logo"].startsWith("data:")) {
+        // parse data uri
+        var data = UriData.fromString(info["button"]["logo"]);
+        chld = LayoutBuilder(
+            builder: (context, constraint) => SvgPicture.memory(
+                  data.contentAsBytes(),
+                  height: constraint.biggest.height * 0.6,
+                ));
+      } else {
+        chld = LayoutBuilder(
+            builder: (context, constraint) => SvgPicture.network(
+                  info["button"]["logo"],
+                  height: constraint.biggest.height * 0.6,
+                ));
+      }
       col = HexColor.fromHex(info["button"]["background-color"]);
     } else {
       switch (info["info"]["Token_Name"]) {

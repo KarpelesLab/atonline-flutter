@@ -1,3 +1,7 @@
+## [0.2.3] - January 26th 2020
+
+* Fix support for server-defined buttons
+
 ## [0.2.2] - January 26th 2020
 
 * Adding support for server-defined buttons, using SVG icons
