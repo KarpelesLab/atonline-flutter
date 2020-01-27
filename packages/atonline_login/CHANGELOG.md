@@ -1,3 +1,8 @@
+## [0.3.1] - January 27th 2020
+
+* Fix handling of cancellation of login view
+* Remove now unneeded dependency on icons theme
+
 ## [0.3.0] - January 27th 2020
 
 * Code cleanup & move hexcolor to own file

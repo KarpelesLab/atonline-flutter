@@ -59,8 +59,14 @@ class _AtOnlineLoginPageBodyState extends State<AtOnlineLoginPageBody> {
   }
 
   Future<Null> _doOauth2Login(String url) async {
-    final result = await FlutterWebAuth.authenticate(
-        url: url, callbackUrlScheme: widget.callbackUrlScheme);
+    String result;
+    try {
+      result = await FlutterWebAuth.authenticate(
+          url: url, callbackUrlScheme: widget.callbackUrlScheme);
+    } catch (e) {
+      _showError(msg: "Operation has been cancelled.");
+      return;
+    }
 
     final l = Uri.parse(result);
 
