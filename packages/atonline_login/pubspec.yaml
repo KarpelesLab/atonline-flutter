@@ -16,6 +16,7 @@ dependencies:
   image_picker: ^0.6.3 # flutter team
   atonline_api: ^0.2.4
   flutter_svg: ^0.17.0
+  flutter_web_auth: ^0.1.2 # non official
 
 dev_dependencies:
   flutter_test:
