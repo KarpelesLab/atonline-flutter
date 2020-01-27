@@ -4,55 +4,18 @@ import 'dart:math';
 import 'package:atonline_api/atonline_api.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:flutter_web_auth/flutter_web_auth.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import 'hexcolor.dart';
 import 'imagepicker.dart';
 
-extension HexColor on Color {
-  /// String is in the format "abc" "aabbcc" or "ffaabbcc" with an optional leading "#".
-  static Color fromHex(String hexString) {
-    if (hexString.startsWith("#")) {
-      hexString = hexString.substring(1);
-    }
-
-    switch (hexString.length) {
-      case 6:
-        hexString = "ff" + hexString;
-        break;
-      case 8:
-        // (all good)
-        break;
-      case 3:
-        hexString = "ff" +
-            hexString[0] +
-            hexString[0] +
-            hexString[1] +
-            hexString[1] +
-            hexString[2] +
-            hexString[2];
-        break;
-      default:
-        // fail.
-        return Color(0);
-    }
-
-    return Color(int.parse(hexString, radix: 16));
-  }
-
-  /// Prefixes a hash sign if [leadingHashSign] is set to `true` (default is `true`).
-  String toHex({bool leadingHashSign = true}) => '${leadingHashSign ? '#' : ''}'
-      '${alpha.toRadixString(16).padLeft(2, '0')}'
-      '${red.toRadixString(16).padLeft(2, '0')}'
-      '${green.toRadixString(16).padLeft(2, '0')}'
-      '${blue.toRadixString(16).padLeft(2, '0')}';
-}
-
 class AtOnlineLoginPageBody extends StatefulWidget {
-  final String redirectUri;
+  final String callbackUrlScheme;
   final AtOnline api;
 
-  AtOnlineLoginPageBody(this.api, {this.redirectUri});
+  AtOnlineLoginPageBody(this.api, {this.callbackUrlScheme});
 
   @override
   _AtOnlineLoginPageBodyState createState() => _AtOnlineLoginPageBodyState();
@@ -79,20 +42,17 @@ class _AtOnlineLoginPageBodyState extends State<AtOnlineLoginPageBody> {
   @override
   void initState() {
     _submitData();
+    // generate a random session id
     _clientSessionId = String.fromCharCodes(
         List.generate(64, (index) => _randomBetween(33, 126)));
-    Links().addListener(widget.redirectUri, _loginListener);
     super.initState();
   }
 
-  @override
-  void dispose() {
-    Links().removeListener(widget.redirectUri, _loginListener);
-    super.dispose();
-  }
+  Future<Null> _doOauth2Login(String url) async {
+    final result = await FlutterWebAuth.authenticate(
+        url: url, callbackUrlScheme: widget.callbackUrlScheme);
 
-  void _loginListener(Uri l) async {
-    await closeWebView();
+    final l = Uri.parse(result);
 
     var qp = l.queryParameters;
     if (qp["session"] == null) {
@@ -177,10 +137,7 @@ class _AtOnlineLoginPageBodyState extends State<AtOnlineLoginPageBody> {
 
     if (res["url"] != null) {
       // special case → open given url, do nothing else
-      launch(res["url"]);
-      setState(() {
-        busy = false;
-      });
+      _doOauth2Login(res["url"]);
       return;
     }
 
@@ -298,8 +255,10 @@ class _AtOnlineLoginPageBodyState extends State<AtOnlineLoginPageBody> {
   }
 
   void _doOAuth2Login(dynamic info) async {
-    _submitData(
-        override: {"oauth2": info["id"], "redirect_uri": widget.redirectUri});
+    _submitData(override: {
+      "oauth2": info["id"],
+      "redirect_uri": widget.callbackUrlScheme + ":/"
+    });
   }
 
   @override
@@ -458,7 +417,7 @@ class _AtOnlineLoginPageBodyState extends State<AtOnlineLoginPageBody> {
           }
         });
 
-        if ((oauth2.length > 0) && (widget.redirectUri != null)) {
+        if ((oauth2.length > 0) && (widget.callbackUrlScheme != null)) {
           // can't quite use gridview inside of a SingleChildScrollView it seems
           double width =
               ((MediaQuery.of(context).size.width - 30) / oauth2PerLine) * 0.95;
