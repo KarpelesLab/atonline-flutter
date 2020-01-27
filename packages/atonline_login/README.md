@@ -2,6 +2,8 @@
 
 Client-side login page for applications using AtOnline apis and custom realms
 
+Now requires iOS 11+ because of flutter_web_auth
+
 ## Getting Started
 
 This project is a starting point for a Dart
