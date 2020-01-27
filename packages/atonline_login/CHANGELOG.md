@@ -1,3 +1,9 @@
+## [0.3.0] - January 27th 2020
+
+* Code cleanup & move hexcolor to own file
+* Instead of redirectUri we now ask for callbackUrlScheme to process oauth2 login
+* Now using flutter_web_auth for web auth, ensuring SSO cookies are available
+
 ## [0.2.3] - January 26th 2020
 
 * Fix support for data uri in server-defined buttons

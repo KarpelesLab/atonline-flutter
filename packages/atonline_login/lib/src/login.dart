@@ -5,7 +5,6 @@ import 'package:atonline_api/atonline_api.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_web_auth/flutter_web_auth.dart';
-import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import 'hexcolor.dart';
@@ -48,6 +47,17 @@ class _AtOnlineLoginPageBodyState extends State<AtOnlineLoginPageBody> {
     super.initState();
   }
 
+  void _showError({String msg}) {
+    if (msg == null) {
+      msg = "An error happened, please retry.";
+    }
+    Scaffold.of(context).showSnackBar(SnackBar(content: Text(msg)));
+
+    setState(() {
+      busy = false;
+    });
+  }
+
   Future<Null> _doOauth2Login(String url) async {
     final result = await FlutterWebAuth.authenticate(
         url: url, callbackUrlScheme: widget.callbackUrlScheme);
@@ -58,7 +68,7 @@ class _AtOnlineLoginPageBodyState extends State<AtOnlineLoginPageBody> {
     if (qp["session"] == null) {
       // cancel
       // TODO handle errors?
-      Navigator.of(context).pop();
+      _showError();
       return;
     }
 
@@ -68,6 +78,11 @@ class _AtOnlineLoginPageBodyState extends State<AtOnlineLoginPageBody> {
   }
 
   void _submitData({Map<String, String> override}) async {
+    setState(() {
+      busy = true;
+    });
+
+    // generate request
     var body = <String, String>{
       "client_id": widget.api.appId,
       "image_variation": User.imageVariation,
@@ -78,6 +93,7 @@ class _AtOnlineLoginPageBodyState extends State<AtOnlineLoginPageBody> {
       canReset = true;
     }
 
+    // if override is not null, do not read fields
     if (override != null) {
       override.forEach((k, v) {
         body[k] = v;
@@ -88,20 +104,11 @@ class _AtOnlineLoginPageBodyState extends State<AtOnlineLoginPageBody> {
       });
     }
 
-    print("body = $body");
-
-    setState(() {
-      busy = true;
-    });
     var res;
     try {
       res = await widget.api.req("User:flow", method: "POST", body: body);
     } on AtOnlinePlatformException {
-      Scaffold.of(context)
-          .showSnackBar(SnackBar(content: Text("ERROR (todo)")));
-      setState(() {
-        busy = false;
-      });
+      _showError();
       return;
     }
 
@@ -128,10 +135,12 @@ class _AtOnlineLoginPageBodyState extends State<AtOnlineLoginPageBody> {
           Navigator.of(context).pushReplacementNamed("/home");
           return;
         } else {
-          // show error?
+          _showError();
+          return;
         }
       } catch (e) {
-        // show error?
+        _showError();
+        return;
       }
     }
 
@@ -176,59 +185,6 @@ class _AtOnlineLoginPageBodyState extends State<AtOnlineLoginPageBody> {
                 ));
       }
       col = HexColor.fromHex(info["button"]["background-color"]);
-    } else {
-      switch (info["info"]["Token_Name"]) {
-        case "google":
-          chld = LayoutBuilder(
-              builder: (context, constraint) => Icon(MdiIcons.google,
-                  size: constraint.biggest.height * 0.6, color: Colors.white));
-          col = Color(0xffDB4437);
-          break;
-        case "facebook":
-          chld = LayoutBuilder(
-              builder: (context, constraint) => Icon(MdiIcons.facebook,
-                  size: constraint.biggest.height * 0.6, color: Colors.white));
-          col = Color(0xff3C5A99);
-          break;
-        case "twitter":
-          chld = LayoutBuilder(
-              builder: (context, constraint) => Icon(MdiIcons.twitter,
-                  size: constraint.biggest.height * 0.6, color: Colors.white));
-          col = Color(0xff1da1f2);
-          break;
-        case "yahoo_japan":
-          chld = Container(
-              margin: EdgeInsets.all(5),
-              child: Image.asset(
-                "assets/Yahoo_Favicon_1997.png",
-              ));
-          col = Colors.white;
-          break;
-        case "amazon":
-          chld = LayoutBuilder(
-              builder: (context, constraint) => Icon(MdiIcons.amazon,
-                  size: constraint.biggest.height * 0.6, color: Colors.white));
-          col = Color(0xffFF9900);
-          break;
-        case "reddit":
-          chld = LayoutBuilder(
-              builder: (context, constraint) => Icon(MdiIcons.reddit,
-                  size: constraint.biggest.height * 0.6, color: Colors.white));
-          col = Color(0xffFF4500);
-          break;
-        case "line":
-          chld = LayoutBuilder(
-              builder: (context, constraint) => Icon(MdiIcons.chat,
-                  size: constraint.biggest.height * 0.6, color: Colors.white));
-          col = Color(0xff00c300);
-          break;
-        case "apple":
-          chld = LayoutBuilder(
-              builder: (context, constraint) => Icon(MdiIcons.apple,
-                  size: constraint.biggest.height * 0.6, color: Colors.white));
-          col = Color(0xff000000);
-          break;
-      }
     }
 
     Widget btn = Container(
@@ -487,6 +443,7 @@ class _AtOnlineLoginPageBodyState extends State<AtOnlineLoginPageBody> {
     var l = <Widget>[Center(child: body)];
 
     if (busy) {
+      // if busy, stack a modal barrier and a progress indicator on top
       l.add(Opacity(
         opacity: 0.2,
         child: ModalBarrier(
