@@ -1,6 +1,6 @@
 name: atonline_api
 description: AtOnline API tools for Flutter, for use with AtOnline.com APIs including CMS, Naka, etc.
-version: 0.2.5
+version: 0.2.6
 homepage: https://github.com/AtOnline/atonline-flutter
 
 environment:
@@ -12,12 +12,12 @@ dependencies:
   flutter_localizations:
     sdk: flutter
 
-  http: ^0.12.0
+  http: ^0.12.2
   mime: ^0.9.6+3
-  flutter_secure_storage: ^3.3.1
-  url_launcher: ^5.4.1
-  uni_links: ^0.2.0
-  intl: ^0.16.0
+  flutter_secure_storage: ^3.3.3
+  url_launcher: ^5.5.2
+  uni_links: ^0.4.0
+  intl: ^0.16.1
 
 dev_dependencies:
   flutter_test:
