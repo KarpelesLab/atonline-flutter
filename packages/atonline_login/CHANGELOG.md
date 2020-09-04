@@ -1,3 +1,7 @@
+## [0.3.2] - September 4th 2020
+
+* Updated dependencies
+
 ## [0.3.1] - January 27th 2020
 
 * Fix handling of cancellation of login view
