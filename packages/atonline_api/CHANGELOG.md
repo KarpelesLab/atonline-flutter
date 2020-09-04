@@ -1,3 +1,7 @@
+## [0.2.6] September 4th 2020
+
+* Update dependencies
+
 ## [0.2.5] January 22nd 2020
 
 * Added support for context override in api
