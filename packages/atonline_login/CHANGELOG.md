@@ -1,3 +1,9 @@
+## [0.3.3] - September 4th 2020
+
+* Updated dependencies
+* Added support for phone field
+* Added max size for oauth icons
+
 ## [0.3.2] - September 4th 2020
 
 * Updated dependencies

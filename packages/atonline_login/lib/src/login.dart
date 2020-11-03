@@ -310,6 +310,19 @@ class _AtOnlineLoginPageBodyState extends State<AtOnlineLoginPageBody> {
               firstField = false;
               l.add(Container(height: 15));
               break;
+            case "phone":
+              l.add(TextFormField(
+                key: Key(info["name"]),
+                controller: fields[info["name"]],
+                keyboardType: TextInputType.phone,
+                autofocus: firstField,
+                decoration: InputDecoration(
+                  labelText: info["label"].toString(),
+                ),
+              ));
+              firstField = false;
+              l.add(Container(height: 15));
+              break;
             case "password":
               l.add(TextFormField(
                 key: Key(info["name"]),
@@ -383,6 +396,8 @@ class _AtOnlineLoginPageBodyState extends State<AtOnlineLoginPageBody> {
           // can't quite use gridview inside of a SingleChildScrollView it seems
           double width =
               ((MediaQuery.of(context).size.width - 30) / oauth2PerLine) * 0.95;
+          if (width > 70) width = 70;
+
           while (oauth2.length > 0) {
             List<Widget> t;
             if (oauth2.length > oauth2PerLine) {
