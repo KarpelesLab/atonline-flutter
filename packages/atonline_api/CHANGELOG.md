@@ -1,3 +1,8 @@
+## [0.3.0] March 4th 2021
+
+* Upgrade dependencies
+* Use Uri when needed
+
 ## [0.2.6] September 4th 2020
 
 * Update dependencies

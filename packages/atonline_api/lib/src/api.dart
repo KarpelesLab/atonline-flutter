@@ -155,7 +155,7 @@ class AtOnline {
                 ..addAll(body));
           res = await http.get(urlPath, headers: headers);
         } else {
-          res = await http.get(urlPath.toString(), headers: headers);
+          res = await http.get(urlPath, headers: headers);
         }
         break;
       case "POST":
@@ -167,7 +167,7 @@ class AtOnline {
           body = json.encode(body);
         }
 
-        res = await http.post(urlPath.toString(), body: body, headers: headers);
+        res = await http.post(urlPath, body: body, headers: headers);
         break;
       default:
         var req = http.Request(method, urlPath);
