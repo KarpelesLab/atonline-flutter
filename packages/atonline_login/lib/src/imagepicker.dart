@@ -20,24 +20,25 @@ class _ImagePickerWidgetState extends State<ImagePickerWidget> {
   File _image;
   final ImagePickerSaver onChange;
   final String defaultImageUrl;
+  final _picker = ImagePicker();
 
   _ImagePickerWidgetState(this.onChange, this.defaultImageUrl);
 
   Future getImage() async {
-    var image = await ImagePicker.pickImage(source: ImageSource.camera);
+    var image = await _picker.getImage(source: ImageSource.camera);
 
     setState(() {
-      _image = image;
-      if (onChange != null) onChange(image);
+      _image = File(image.path);
+      if (onChange != null) onChange(_image);
     });
   }
 
   Future pickImage() async {
-    var image = await ImagePicker.pickImage(source: ImageSource.gallery);
+    var image = await _picker.getImage(source: ImageSource.gallery);
 
     setState(() {
-      _image = image;
-      if (onChange != null) onChange(image);
+      _image = File(image.path);
+      if (onChange != null) onChange(_image);
     });
   }
 

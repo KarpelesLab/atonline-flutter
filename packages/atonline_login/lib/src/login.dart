@@ -51,7 +51,7 @@ class _AtOnlineLoginPageBodyState extends State<AtOnlineLoginPageBody> {
     if (msg == null) {
       msg = "An error happened, please retry.";
     }
-    Scaffold.of(context).showSnackBar(SnackBar(content: Text(msg)));
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
 
     setState(() {
       busy = false;

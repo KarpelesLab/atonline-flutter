@@ -1,3 +1,8 @@
+## [0.3.4] - March 4th 2021
+
+* Update dependencies
+* Update code accordingly
+
 ## [0.3.3] - September 4th 2020
 
 * Updated dependencies
