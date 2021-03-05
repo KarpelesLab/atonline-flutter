@@ -1,3 +1,7 @@
+## [0.3.1] March 5th 2021
+
+* Update http dependency to work with firebase
+
 ## [0.3.0] March 4th 2021
 
 * Upgrade dependencies
