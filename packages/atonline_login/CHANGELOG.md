@@ -1,3 +1,7 @@
+## [0.3.5] - March 5th 2021
+
+* Return to ^0.6.0 imagepicker dependency as it conflicts due to http package
+
 ## [0.3.4] - March 4th 2021
 
 * Update dependencies
