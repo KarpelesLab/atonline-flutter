@@ -3,11 +3,11 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
-typedef void ImagePickerSaver(File image);
+typedef void ImagePickerSaver(File? image);
 
 class ImagePickerWidget extends StatefulWidget {
-  final ImagePickerSaver onChange;
-  final String defaultImageUrl;
+  final ImagePickerSaver? onChange;
+  final String? defaultImageUrl;
 
   ImagePickerWidget({this.onChange, this.defaultImageUrl});
 
@@ -17,9 +17,9 @@ class ImagePickerWidget extends StatefulWidget {
 }
 
 class _ImagePickerWidgetState extends State<ImagePickerWidget> {
-  File _image;
-  final ImagePickerSaver onChange;
-  final String defaultImageUrl;
+  File? _image;
+  final ImagePickerSaver? onChange;
+  final String? defaultImageUrl;
   final ImagePicker _picker = ImagePicker();
   _ImagePickerWidgetState(this.onChange, this.defaultImageUrl);
 
@@ -27,8 +27,8 @@ class _ImagePickerWidgetState extends State<ImagePickerWidget> {
     var image = await _picker.pickImage(source: ImageSource.camera);
 
     setState(() {
-      _image = File(image.path);
-      if (onChange != null) onChange(_image);
+      _image = File(image!.path);
+      if (onChange != null) onChange!(_image);
     });
   }
 
@@ -36,8 +36,8 @@ class _ImagePickerWidgetState extends State<ImagePickerWidget> {
     var image = await _picker.pickImage(source: ImageSource.gallery);
 
     setState(() {
-      _image = File(image.path);
-      if (onChange != null) onChange(_image);
+      _image = File(image!.path);
+      if (onChange != null) onChange!(_image);
     });
   }
 
@@ -45,9 +45,9 @@ class _ImagePickerWidgetState extends State<ImagePickerWidget> {
     ImageProvider img;
 
     if (_image != null) {
-      img = FileImage(_image);
+      img = FileImage(_image!);
     } else if (defaultImageUrl != null) {
-      img = NetworkImage(defaultImageUrl);
+      img = NetworkImage(defaultImageUrl!);
     } else {
       img = AssetImage("assets/select_picture.png"); // tbd
     }

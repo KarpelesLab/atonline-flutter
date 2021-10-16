@@ -11,7 +11,7 @@ import 'hexcolor.dart';
 import 'imagepicker.dart';
 
 class AtOnlineLoginPageBody extends StatefulWidget {
-  final String callbackUrlScheme;
+  final String? callbackUrlScheme;
   final AtOnline api;
 
   AtOnlineLoginPageBody(this.api, {this.callbackUrlScheme});
@@ -25,8 +25,9 @@ class _AtOnlineLoginPageBodyState extends State<AtOnlineLoginPageBody> {
   bool busy = true;
   bool canReset = false;
   String session = "";
-  String _clientSessionId; // random string used to identify progress in session
-  Map<String, TextEditingController> fields;
+  String?
+      _clientSessionId; // random string used to identify progress in session
+  Map<String, TextEditingController> fields = {};
   Map<String, File> _files = {};
   Map<String, dynamic> _fileFields = {}; // fields about files (which are set)
   static const oauth2PerLine = 6;
@@ -47,7 +48,7 @@ class _AtOnlineLoginPageBodyState extends State<AtOnlineLoginPageBody> {
     super.initState();
   }
 
-  void _showError({String msg}) {
+  void _showError({String? msg}) {
     if (msg == null) {
       msg = "An error happened, please retry.";
     }
@@ -62,7 +63,7 @@ class _AtOnlineLoginPageBodyState extends State<AtOnlineLoginPageBody> {
     String result;
     try {
       result = await FlutterWebAuth.authenticate(
-          url: url, callbackUrlScheme: widget.callbackUrlScheme);
+          url: url, callbackUrlScheme: widget.callbackUrlScheme!);
     } catch (e) {
       _showError(msg: "Operation has been cancelled.");
       return;
@@ -79,11 +80,11 @@ class _AtOnlineLoginPageBodyState extends State<AtOnlineLoginPageBody> {
     }
 
     // refresh this new session
-    session = qp["session"];
+    session = qp["session"] ?? "";
     _submitData(override: {}); // send empty form
   }
 
-  void _submitData({Map<String, String> override}) async {
+  void _submitData({Map<String, String>? override}) async {
     setState(() {
       busy = true;
     });
@@ -93,7 +94,7 @@ class _AtOnlineLoginPageBodyState extends State<AtOnlineLoginPageBody> {
       "client_id": widget.api.appId,
       "image_variation": User.imageVariation,
       "session": session,
-      "client_sid": _clientSessionId,
+      "client_sid": _clientSessionId ?? "",
     };
     if (session != "") {
       canReset = true;
@@ -104,7 +105,7 @@ class _AtOnlineLoginPageBodyState extends State<AtOnlineLoginPageBody> {
       override.forEach((k, v) {
         body[k] = v;
       });
-    } else if (fields != null) {
+    } else if (fields.length > 0) {
       fields.forEach((field, c) {
         body[field] = c.text;
       });
@@ -122,9 +123,9 @@ class _AtOnlineLoginPageBodyState extends State<AtOnlineLoginPageBody> {
       // we got a login!
       try {
         await widget.api.storeToken(res["Token"]);
-        await widget.api.user.fetchLogin();
+        await widget.api.user!.fetchLogin();
 
-        if (widget.api.user.isLoggedIn()) {
+        if (widget.api.user!.isLoggedIn()) {
           // perform files
           if (_files.length > 0) {
             var futures = <Future>[];
@@ -135,7 +136,7 @@ class _AtOnlineLoginPageBodyState extends State<AtOnlineLoginPageBody> {
             });
             await Future.wait(futures);
 
-            await widget.api.user.fetchLogin(); // once again with love
+            await widget.api.user!.fetchLogin(); // once again with love
           }
           Navigator.of(context).pop();
           Navigator.of(context).pushReplacementNamed("/home");
@@ -219,7 +220,7 @@ class _AtOnlineLoginPageBodyState extends State<AtOnlineLoginPageBody> {
   void _doOAuth2Login(dynamic info) async {
     _submitData(override: {
       "oauth2": info["id"],
-      "redirect_uri": widget.callbackUrlScheme + ":/"
+      "redirect_uri": widget.callbackUrlScheme! + ":/"
     });
   }
 
@@ -352,10 +353,10 @@ class _AtOnlineLoginPageBodyState extends State<AtOnlineLoginPageBody> {
               l.add(Row(
                 children: <Widget>[
                   Checkbox(
-                    value: fields[info["name"]].text == "1",
+                    value: (fields[info["name"]]?.text ?? "") == "1",
                     onChanged: (v) {
                       setState(() {
-                        fields[info["name"]].text = v ? "1" : "";
+                        fields[info["name"]]?.text = v! ? "1" : "";
                       });
                     },
                   ),
@@ -382,8 +383,13 @@ class _AtOnlineLoginPageBodyState extends State<AtOnlineLoginPageBody> {
               if (info["label"] != null) l.add(Text(info["label"].toString()));
               l.add(ImagePickerWidget(
                 onChange: (img) {
-                  _files[info["name"]] = img;
-                  _fileFields[info["name"]] = info;
+                  if (img == null) {
+                    _files.remove(info["name"]);
+                    _fileFields[info["name"]] = info;
+                  } else {
+                    _files[info["name"]] = img;
+                    _fileFields[info["name"]] = info;
+                  }
                 },
               ));
               break;
@@ -427,7 +433,7 @@ class _AtOnlineLoginPageBodyState extends State<AtOnlineLoginPageBody> {
           canReset
               ? TextButton(
                   onPressed: () {
-                    fields = null;
+                    fields = {};
                     info = null;
                     session = "";
                     canReset = false;
