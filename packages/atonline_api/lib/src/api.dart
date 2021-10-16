@@ -41,9 +41,9 @@ class AtOnlinePaging {
 
 class AtOnlineApiResult extends Iterable<dynamic> {
   dynamic res;
-  AtOnlinePaging paging;
-  double time;
-  String result;
+  AtOnlinePaging? paging;
+  double? time;
+  String? result;
   dynamic get data => res["data"];
 
   // Used when data is a key/values pair and not accessible by index.
@@ -98,7 +98,7 @@ class AtOnline {
     if (!_instances.containsKey(appId))
       _instances[appId] = new AtOnline._internal(appId, prefix, authEndpoint);
 
-    return _instances[appId];
+    return _instances[appId]!;
   }
 
   AtOnline._internal(this.appId, this.prefix, this.authEndpoint);
@@ -108,11 +108,11 @@ class AtOnline {
 
   // details of current session
   int expiresV = 0;
-  String tokenV = "";
+  String? tokenV = "";
   bool storageLoadCompleted = false;
-  User _user;
+  User? _user;
 
-  User get user {
+  User? get user {
     if (_user == null) _user = User(this);
 
     return _user;
@@ -121,14 +121,14 @@ class AtOnline {
   Future<dynamic> req(String path,
       {String method = "GET",
       dynamic body,
-      Map<String, String> headers,
-      Map<String, String> context,
+      Map<String, String>? headers,
+      Map<String, String>? context,
       bool skipDecode = false}) async {
     print("Running $method $path");
 
     http.Response res;
 
-    var _ctx = <String, String>{};
+    var _ctx = <String, String?>{};
 
     _ctx["_ctx[l]"] = Intl.defaultLocale;
 
@@ -189,7 +189,7 @@ class AtOnline {
       // something is wrong
 
       // check if response is json
-      String ct = res.headers["content-type"];
+      String ct = res.headers["content-type"]!;
       int idx = ct.indexOf(';');
       if (idx > 0) {
         ct = ct.substring(0, idx);
@@ -222,12 +222,12 @@ class AtOnline {
   Future<dynamic> authReq(String path,
       {String method = "GET",
       dynamic body,
-      Map<String, String> headers,
-      Map<String, String> context}) async {
+      Map<String, String>? headers,
+      Map<String, String>? context}) async {
     if (headers == null) {
       headers = <String, String>{};
     }
-    headers["Authorization"] = "Bearer " + await token();
+    headers["Authorization"] = "Bearer " + await (token() as FutureOr<String>);
     return req(path,
         method: method, body: body, headers: headers, context: context);
   }
@@ -235,23 +235,23 @@ class AtOnline {
   Future<dynamic> optAuthReq(String path,
       {String method = "GET",
       dynamic body,
-      Map<String, String> headers,
-      Map<String, String> context}) async {
+      Map<String, String>? headers,
+      Map<String, String>? context}) async {
     try {
       if (headers == null) {
         headers = <String, String>{};
       }
-      headers["Authorization"] = "Bearer " + await token();
+      headers["Authorization"] = "Bearer " + await (token() as FutureOr<String>);
     } on AtOnlineLoginException {} on AtOnlinePlatformException {}
     return req(path,
         method: method, body: body, headers: headers, context: context);
   }
 
   Future<dynamic> authReqUpload(String path, File f,
-      {Map<String, dynamic> body,
-      Map<String, String> headers,
-      Map<String, String> context,
-      ProgressCallback progress}) async {
+      {Map<String, dynamic>? body,
+      Map<String, String>? headers,
+      Map<String, String>? context,
+      ProgressCallback? progress}) async {
     var mime = lookupMimeType(f.path) ?? "application/octet-stream";
     var size = await f.length();
 
@@ -297,7 +297,7 @@ class AtOnline {
     return await req(res["Complete"], method: "POST", context: context);
   }
 
-  Future<String> token() async {
+  Future<String?> token() async {
     int now = (DateTime.now().millisecondsSinceEpoch / 1000).round();
 
     if (expiresV > now) {
@@ -321,7 +321,7 @@ class AtOnline {
     }
 
     // need a new token
-    String ref = await storage.read(key: "refresh_token");
+    String? ref = await storage.read(key: "refresh_token");
     if ((ref == null) || (ref == "")) {
       // user is not logged in or we don't have a refresh_token, need to have user login again
       if (tokenV != "") {

@@ -23,15 +23,15 @@ class Links {
     if (!_listeners.containsKey(prefix)) {
       _listeners[prefix] = ObserverList<LinkListener>();
     }
-    _listeners[prefix].add(listener);
+    _listeners[prefix]!.add(listener);
   }
 
   void removeListener(String prefix, LinkListener listener) {
     if (!_listeners.containsKey(prefix)) {
       return;
     }
-    _listeners[prefix].remove(listener);
-    if (_listeners[prefix].isEmpty) {
+    _listeners[prefix]!.remove(listener);
+    if (_listeners[prefix]!.isEmpty) {
       _listeners.remove(prefix);
     }
   }
@@ -59,7 +59,7 @@ class Links {
     }
 
     final List<LinkListener> localListeners =
-        List<LinkListener>.from(_listeners[prefix]);
+        List<LinkListener>.from(_listeners[prefix]!);
 
     for (LinkListener listener in localListeners) {
       try {
@@ -74,14 +74,14 @@ class Links {
     }
   }
 
-  void processLink(String link) {
-    Uri l = Uri.parse(link);
+  void processLink(String? link) {
+    Uri l = Uri.parse(link!);
     _fireNotification(link, l);
   }
 
   Future<Null> _init() async {
     try {
-      String initialLink = await getInitialLink();
+      String? initialLink = await getInitialLink();
       if (initialLink != null) {
         processLink(initialLink);
       }

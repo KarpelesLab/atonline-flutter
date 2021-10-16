@@ -11,9 +11,9 @@ import 'links.dart';
 
 // basic user information
 class UserInfo {
-  String email;
-  String displayName;
-  String profilePicture;
+  String? email;
+  String? displayName;
+  String? profilePicture;
 }
 
 class User {
@@ -23,7 +23,7 @@ class User {
   User(this.api);
 
   bool loading = true;
-  UserInfo info;
+  UserInfo? info;
   final ObserverList<VoidCallback> _listeners = ObserverList<VoidCallback>();
 
   // this cannot be async, instead subscribe to events (api.user.addListener()) and call it again on update
@@ -159,16 +159,16 @@ class LoginPageState extends State<LoginPage> {
     var auth = await widget.api.req("OAuth2:token",
         method: "POST",
         skipDecode: true,
-        body: <String, String>{
+        body: <String, String?>{
           "client_id": widget.api.appId,
           "grant_type": "authorization_code",
           "redirect_uri": widget.redirectUri,
           "code": qp["code"],
         });
     await widget.api.storeToken(auth);
-    await widget.api.user.fetchLogin();
+    await widget.api.user!.fetchLogin();
 
-    if (widget.api.user.isLoggedIn()) {
+    if (widget.api.user!.isLoggedIn()) {
       print("closing view");
       await closeWebView();
       print("close complete");
