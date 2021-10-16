@@ -1,3 +1,7 @@
+## [0.4.0] October 16th 2021
+
+* Migrate to dart null safety
+
 ## [0.3.1] March 5th 2021
 
 * Update http dependency to work with firebase
