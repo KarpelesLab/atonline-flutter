@@ -68,7 +68,8 @@ class Links {
         FlutterError.reportError(FlutterErrorDetails(
           exception: exception,
           stack: stack,
-          context: DiagnosticsNode.message('while notifying listeners for link action'),
+          context: DiagnosticsNode.message(
+              'while notifying listeners for link action'),
         ));
       }
     }
@@ -87,6 +88,6 @@ class Links {
       }
     } on PlatformException {}
 
-    getLinksStream().listen(processLink);
+    linkStream.listen(processLink);
   }
 }
