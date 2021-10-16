@@ -425,7 +425,7 @@ class _AtOnlineLoginPageBodyState extends State<AtOnlineLoginPageBody> {
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: <Widget>[
           canReset
-              ? FlatButton(
+              ? TextButton(
                   onPressed: () {
                     fields = null;
                     info = null;
@@ -436,7 +436,7 @@ class _AtOnlineLoginPageBodyState extends State<AtOnlineLoginPageBody> {
                   child: Text("Reset", style: TextStyle(color: Colors.red)),
                 )
               : Container(),
-          RaisedButton(
+          ElevatedButton(
             onPressed: _submitData,
             child: Text("Submit"),
           ),
