@@ -1,3 +1,7 @@
+## [0.4.0+1] - October 24th 2021
+
+* Change flutter_svg dep to be more flexible
+
 ## [0.4.0] - October 16th 2021
 
 * Upgrade to dart null safety
