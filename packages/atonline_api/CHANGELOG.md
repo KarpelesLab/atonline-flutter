@@ -1,3 +1,7 @@
+## [0.4.1] October 29th 2021
+
+* Fix some null issues to make api.user easier to use
+
 ## [0.4.0] October 16th 2021
 
 * Migrate to dart null safety
