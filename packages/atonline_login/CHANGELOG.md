@@ -1,3 +1,7 @@
+## [0.4.1] - October 29th 2021
+
+* Bump atonline_api dep
+
 ## [0.4.0+1] - October 24th 2021
 
 * Change flutter_svg dep to be more flexible
