@@ -112,10 +112,10 @@ class AtOnline {
   bool storageLoadCompleted = false;
   User? _user;
 
-  User? get user {
+  User get user {
     if (_user == null) _user = User(this);
 
-    return _user;
+    return _user!;
   }
 
   Future<dynamic> req(String path,
@@ -150,9 +150,8 @@ class AtOnline {
               scheme: urlPath.scheme,
               host: urlPath.host,
               path: urlPath.path,
-              queryParameters: {}
-                ..addAll(urlPath.queryParameters)
-                ..addAll(body));
+              queryParameters: {"_": json.encode(body)}
+                ..addAll(urlPath.queryParameters));
           res = await http.get(urlPath, headers: headers);
         } else {
           res = await http.get(urlPath, headers: headers);
@@ -213,10 +212,10 @@ class AtOnline {
 
     if (d["result"] != "success") {
       print("Got error: $d");
-      throw new AtOnlinePlatformException(d);
+      throw AtOnlinePlatformException(d);
     }
 
-    return new AtOnlineApiResult(d);
+    return AtOnlineApiResult(d);
   }
 
   Future<dynamic> authReq(String path,
@@ -227,7 +226,7 @@ class AtOnline {
     if (headers == null) {
       headers = <String, String>{};
     }
-    headers["Authorization"] = "Bearer " + await (token() as FutureOr<String>);
+    headers["Authorization"] = "Bearer " + await token();
     return req(path,
         method: method, body: body, headers: headers, context: context);
   }
@@ -241,8 +240,9 @@ class AtOnline {
       if (headers == null) {
         headers = <String, String>{};
       }
-      headers["Authorization"] = "Bearer " + await (token() as FutureOr<String>);
-    } on AtOnlineLoginException {} on AtOnlinePlatformException {}
+      headers["Authorization"] = "Bearer " + await token();
+    } on AtOnlineLoginException {
+    } on AtOnlinePlatformException {}
     return req(path,
         method: method, body: body, headers: headers, context: context);
   }
@@ -297,11 +297,11 @@ class AtOnline {
     return await req(res["Complete"], method: "POST", context: context);
   }
 
-  Future<String?> token() async {
+  Future<String> token() async {
     int now = (DateTime.now().millisecondsSinceEpoch / 1000).round();
 
-    if (expiresV > now) {
-      return tokenV;
+    if ((expiresV > now) && (tokenV != null)) {
+      return tokenV!;
     }
     // grab token
 
@@ -313,9 +313,11 @@ class AtOnline {
         if (exp > now) {
           // token is still valid (in theory)
           tokenV = await storage.read(key: "access_token");
-          expiresV = exp;
-          storageLoadCompleted = true;
-          return tokenV;
+          if (tokenV != null) {
+            expiresV = exp;
+            storageLoadCompleted = true;
+            return tokenV!;
+          }
         }
       }
     }

@@ -166,9 +166,9 @@ class LoginPageState extends State<LoginPage> {
           "code": qp["code"],
         });
     await widget.api.storeToken(auth);
-    await widget.api.user!.fetchLogin();
+    await widget.api.user.fetchLogin();
 
-    if (widget.api.user!.isLoggedIn()) {
+    if (widget.api.user.isLoggedIn()) {
       print("closing view");
       await closeWebView();
       print("close complete");
@@ -200,7 +200,9 @@ class LoginPageState extends State<LoginPage> {
         scheme: url.scheme,
         host: url.host,
         path: url.path,
-        queryParameters: {}..addAll(url.queryParameters)..addAll(params));
+        queryParameters: {}
+          ..addAll(url.queryParameters)
+          ..addAll(params));
 
     // launch it
     print("launch url");
