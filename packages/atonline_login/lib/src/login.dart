@@ -123,9 +123,9 @@ class _AtOnlineLoginPageBodyState extends State<AtOnlineLoginPageBody> {
       // we got a login!
       try {
         await widget.api.storeToken(res["Token"]);
-        await widget.api.user!.fetchLogin();
+        await widget.api.user.fetchLogin();
 
-        if (widget.api.user!.isLoggedIn()) {
+        if (widget.api.user.isLoggedIn()) {
           // perform files
           if (_files.length > 0) {
             var futures = <Future>[];
@@ -136,7 +136,7 @@ class _AtOnlineLoginPageBodyState extends State<AtOnlineLoginPageBody> {
             });
             await Future.wait(futures);
 
-            await widget.api.user!.fetchLogin(); // once again with love
+            await widget.api.user.fetchLogin(); // once again with love
           }
           Navigator.of(context).pop();
           Navigator.of(context).pushReplacementNamed("/home");
