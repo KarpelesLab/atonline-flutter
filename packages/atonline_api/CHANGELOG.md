@@ -1,3 +1,7 @@
+## [0.4.1+2] October 31st 2021
+
+* Fix syntax
+
 ## [0.4.1+1] October 31st 2021
 
 * Add a debug line and simplify GET request processing
