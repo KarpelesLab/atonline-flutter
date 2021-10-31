@@ -149,6 +149,7 @@ class AtOnline {
         if (body != null) {
 	  urlPath.queryParameters["_"] = json.encode(body)
         }
+	print("API GET request: $urlPath");
         res = await http.get(urlPath, headers: headers);
         break;
       case "POST":

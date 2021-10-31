@@ -1,3 +1,7 @@
+## [0.4.1+1] October 31st 2021
+
+* Add a debug line and simplify GET request processing
+
 ## [0.4.1] October 29th 2021
 
 * Fix some null issues to make api.user easier to use
