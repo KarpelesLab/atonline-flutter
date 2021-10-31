@@ -147,16 +147,9 @@ class AtOnline {
     switch (method) {
       case "GET":
         if (body != null) {
-          urlPath = Uri(
-              scheme: urlPath.scheme,
-              host: urlPath.host,
-              path: urlPath.path,
-              queryParameters: {"_": json.encode(body)}
-                ..addAll(urlPath.queryParameters));
-          res = await http.get(urlPath, headers: headers);
-        } else {
-          res = await http.get(urlPath, headers: headers);
+	  urlPath.queryParameters["_"] = json.encode(body)
         }
+        res = await http.get(urlPath, headers: headers);
         break;
       case "POST":
         if (body != null) {
