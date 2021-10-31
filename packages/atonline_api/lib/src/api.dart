@@ -136,6 +136,9 @@ class AtOnline {
     if (context != null) {
       context.forEach((k, v) => _ctx["_ctx[" + k + "]"] = v);
     }
+    if ((method == "GET") && (body != null)) {
+      _ctx["_"] = json.encode(body);
+    }
 
     Uri urlPath = Uri.parse(prefix + path);
     urlPath = Uri(
@@ -146,9 +149,6 @@ class AtOnline {
 
     switch (method) {
       case "GET":
-        if (body != null) {
-          urlPath.queryParameters["_"] = json.encode(body);
-        }
         print("API GET request: $urlPath");
         res = await http.get(urlPath, headers: headers);
         break;

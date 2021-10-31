@@ -1,3 +1,7 @@
+## [0.4.1+3] October 31st 2021
+
+* Make GET body work
+
 ## [0.4.1+2] October 31st 2021
 
 * Fix syntax
