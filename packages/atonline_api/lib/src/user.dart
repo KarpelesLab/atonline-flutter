@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:io';
-import 'dart:ui' show VoidCallback;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -17,7 +16,7 @@ class UserInfo {
   dynamic object;
 }
 
-class User {
+class User extends ChangeNotifier {
   final AtOnline api;
   static const String imageVariation = "strip&format=jpeg&scale_crop=160x160";
 
@@ -25,7 +24,6 @@ class User {
 
   bool loading = true;
   UserInfo? info;
-  final ObserverList<VoidCallback> _listeners = ObserverList<VoidCallback>();
 
   // this cannot be async, instead subscribe to events (api.user.addListener()) and call it again on update
   bool isLoggedIn() {
@@ -52,25 +50,25 @@ class User {
       } catch (e) {}
       info = u;
       loading = false;
-      _fireNotification();
+      notifyListeners();
       return true;
     } on AtOnlineLoginException {
       // failed (no login info)
       info = null;
       loading = false;
-      _fireNotification();
+      notifyListeners();
       return false;
     } on AtOnlinePlatformException {
       // failed (access denied, etc)
       info = null;
       loading = false;
-      _fireNotification();
+      notifyListeners();
       return false;
     } catch (e) {
       // not logged in
       info = null;
       loading = false;
-      _fireNotification();
+      notifyListeners();
       return false;
     }
   }
@@ -93,32 +91,6 @@ class User {
     await api.authReq("User/@/Profile", method: "PATCH", body: profile);
     if (fetch) {
       await fetchLogin();
-    }
-  }
-
-  void addListener(VoidCallback listener) {
-    _listeners.add(listener);
-  }
-
-  void removeListener(VoidCallback listener) {
-    _listeners.remove(listener);
-  }
-
-  void _fireNotification() {
-    final List<VoidCallback> localListeners =
-        List<VoidCallback>.from(_listeners);
-    for (VoidCallback listener in localListeners) {
-      try {
-        listener();
-      } catch (exception, stack) {
-        FlutterError.reportError(FlutterErrorDetails(
-          exception: exception,
-          stack: stack,
-          library: 'User library',
-          context: DiagnosticsNode.message(
-              'while notifying listeners for User login'),
-        ));
-      }
     }
   }
 }
