@@ -2,7 +2,6 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:core';
 import 'dart:io';
-import 'dart:ui' show VoidCallback;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
@@ -86,11 +85,12 @@ class AtOnlineApiResult extends Iterable<dynamic> {
 
 typedef void ProgressCallback(double status);
 
-class AtOnline {
+class AtOnline with ChangeNotifier {
   final String appId;
   final String prefix;
   final String authEndpoint;
   static Map<String, AtOnline> _instances = {};
+  Map<String, String> cookies = {};
 
   factory AtOnline(appId,
       {prefix = "https://hub.atonline.com/_special/rest/",
@@ -104,7 +104,6 @@ class AtOnline {
   AtOnline._internal(this.appId, this.prefix, this.authEndpoint);
 
   final storage = new FlutterSecureStorage();
-  final ObserverList<VoidCallback> _listeners = ObserverList<VoidCallback>();
 
   // details of current session
   int expiresV = 0;
@@ -138,6 +137,11 @@ class AtOnline {
     }
     if ((method == "GET") && (body != null)) {
       _ctx["_"] = json.encode(body);
+    }
+
+    if (cookies.isNotEmpty) {
+      headers ??= {};
+      headers['cookie'] = _generateCookieHeader();
     }
 
     Uri urlPath = Uri.parse(prefix + path);
@@ -178,6 +182,8 @@ class AtOnline {
         var stream = await http.Client().send(req);
         res = await http.Response.fromStream(stream);
     }
+
+    _updateCookie(res);
 
     if (res.statusCode >= 300) {
       // something is wrong
@@ -324,7 +330,7 @@ class AtOnline {
       if (tokenV != "") {
         tokenV = "";
         expiresV = 0;
-        _fireNotification(); // change in state → not logged in anymore
+	notifyListeners(); // change in state → not logged in anymore
       }
       throw new AtOnlineLoginException("no token available");
     }
@@ -361,7 +367,7 @@ class AtOnline {
     if ((res["refresh_token"] != null) && (res["refresh_token"] != "")) {
       await storage.write(key: "refresh_token", value: res["refresh_token"]);
     }
-    _fireNotification();
+    notifyListeners();
   }
 
   voidToken() async {
@@ -378,31 +384,50 @@ class AtOnline {
       storage.delete(key: "expires"),
       storage.delete(key: "refresh_token")
     ]);
-    _fireNotification();
+    notifyListeners();
   }
 
-  void addListener(VoidCallback listener) {
-    _listeners.add(listener);
-  }
+  void _updateCookie(http.Response response) {
+    String? allSetCookie = response.headers['set-cookie'];
 
-  void removeListener(VoidCallback listener) {
-    _listeners.remove(listener);
-  }
+    if (allSetCookie != null) {
+      var setCookies = allSetCookie.split(',');
 
-  void _fireNotification() {
-    final List<VoidCallback> localListeners =
-        List<VoidCallback>.from(_listeners);
-    for (VoidCallback listener in localListeners) {
-      try {
-        listener();
-      } catch (exception, stack) {
-        FlutterError.reportError(FlutterErrorDetails(
-          exception: exception,
-          stack: stack,
-          library: 'Api library',
-          context: DiagnosticsNode.message('while notifying listeners for Api'),
-        ));
+      for (var setCookie in setCookies) {
+        var cookies = setCookie.split(';');
+
+        for (var cookie in cookies) {
+          _setCookie(cookie);
+        }
       }
     }
+  }
+
+  void _setCookie(String rawCookie) {
+    if (rawCookie.length > 0) {
+      var keyValue = rawCookie.split('=');
+      if (keyValue.length == 2) {
+        var key = keyValue[0].trim();
+        var value = keyValue[1];
+
+        // ignore keys that aren't cookies
+        if (key == 'path' || key == 'expires')
+          return;
+
+        this.cookies[key] = value;
+      }
+    }
+  }
+
+  String _generateCookieHeader() {
+    String cookie = "";
+
+    for (var key in cookies.keys) {
+      if (cookie.length > 0)
+        cookie += ";";
+      cookie += key + "=" + cookies[key]!;
+    }
+
+    return cookie;
   }
 }
