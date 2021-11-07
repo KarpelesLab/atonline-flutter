@@ -1,3 +1,8 @@
+## [0.4.3] November 7th 2021
+
+* Add support for cookies
+* use flutter changenotifier for Api class
+
 ## [0.4.2] November 7th 2021
 
 * Expose whole User object in user.object
