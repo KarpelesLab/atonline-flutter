@@ -14,6 +14,7 @@ class UserInfo {
   String? email;
   String? displayName;
   String? profilePicture;
+  dynamic object;
 }
 
 class User {
@@ -40,6 +41,7 @@ class User {
           .authReq("User:get", body: {"image_variation": imageVariation});
       //print("Received user = $res");
       var u = new UserInfo();
+      u.object = res.data;
       u.email = res["Email"];
       try {
         u.displayName = res["Profile"]["Display_Name"];

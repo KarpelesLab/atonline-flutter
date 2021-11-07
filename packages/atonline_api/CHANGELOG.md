@@ -1,3 +1,7 @@
+## [0.4.2] November 7th 2021
+
+* Expose whole User object in user.object
+
 ## [0.4.1+3] October 31st 2021
 
 * Make GET body work
