@@ -1,3 +1,7 @@
+## [0.4.2] - November 10th 2021
+
+* Added onComplete parameter to override completion action
+
 ## [0.4.1] - October 29th 2021
 
 * Bump atonline_api dep
