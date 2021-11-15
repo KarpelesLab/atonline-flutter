@@ -8,6 +8,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart' show Intl;
 import 'package:mime/mime.dart';
+import 'package:path/path.dart' as p;
 
 import 'user.dart';
 
@@ -253,14 +254,13 @@ class AtOnline with ChangeNotifier {
       Map<String, String>? headers,
       Map<String, String>? context,
       ProgressCallback? progress}) async {
-    var mime = lookupMimeType(f.path) ?? "application/octet-stream";
-    var size = await f.length();
 
     if (body == null) {
       body = <String, dynamic>{};
     }
-    body["filename"] = f.path;
-    body["type"] = mime;
+    var size = await f.length();
+    body["filename"] ??= p.basename(f.path);
+    body["type"] ??= lookupMimeType(body["filename"]) ?? "application/octet-stream";
     body["size"] = size;
 
     // first, get upload ready
@@ -268,7 +268,7 @@ class AtOnline with ChangeNotifier {
 
     var r = http.StreamedRequest("PUT", Uri.parse(res["PUT"]));
     r.contentLength = size; // required so upload is not chunked
-    r.headers["Content-Type"] = mime;
+    r.headers["Content-Type"] = body["type"];
 
     void Function(List<int> event) add = r.sink.add;
 
