@@ -1,3 +1,7 @@
+## [0.4.4] November 15th 2021
+
+* Fix file upload via API
+
 ## [0.4.3] November 7th 2021
 
 * Add support for cookies
