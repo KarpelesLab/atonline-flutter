@@ -1,3 +1,7 @@
+## [0.4.5] February 4th 2022
+
+* Cleanup and deps upgrade
+
 ## [0.4.4] November 15th 2021
 
 * Fix file upload via API
