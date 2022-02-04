@@ -1,3 +1,7 @@
+## [0.4.3] - February 4th 2022
+
+* Cleanup and upgrade deps
+
 ## [0.4.2] - November 10th 2021
 
 * Added onComplete parameter to override completion action
