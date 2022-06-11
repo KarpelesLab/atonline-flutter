@@ -13,9 +13,10 @@ import 'imagepicker.dart';
 class AtOnlineLoginPageBody extends StatefulWidget {
   final String? callbackUrlScheme;
   final AtOnline api;
+  final String action;
   final Function()? onComplete;
 
-  AtOnlineLoginPageBody(this.api, {this.callbackUrlScheme, this.onComplete});
+  AtOnlineLoginPageBody(this.api, {this.callbackUrlScheme, this.onComplete, this.action = "login"});
 
   @override
   _AtOnlineLoginPageBodyState createState() => _AtOnlineLoginPageBodyState();
@@ -94,6 +95,7 @@ class _AtOnlineLoginPageBodyState extends State<AtOnlineLoginPageBody> {
     var body = <String, String>{
       "client_id": widget.api.appId,
       "image_variation": User.imageVariation,
+      "action": widget.action,
       "session": session,
       "client_sid": _clientSessionId ?? "",
     };
