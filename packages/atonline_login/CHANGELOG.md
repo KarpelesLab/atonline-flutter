@@ -1,3 +1,7 @@
+## [0.4.5] - June 11th 2022
+
+* Use authenticated requests in flow so requests other than login can be authenticated
+
 ## [0.4.4] - June 11th 2022
 
 * Add support for action in flow process
