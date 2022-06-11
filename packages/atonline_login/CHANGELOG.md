@@ -1,3 +1,7 @@
+## [0.4.4] - June 11th 2022
+
+* Add support for action in flow process
+
 ## [0.4.3] - February 4th 2022
 
 * Cleanup and upgrade deps
