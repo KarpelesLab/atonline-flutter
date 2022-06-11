@@ -116,7 +116,7 @@ class _AtOnlineLoginPageBodyState extends State<AtOnlineLoginPageBody> {
 
     var res;
     try {
-      res = await widget.api.req("User:flow", method: "POST", body: body);
+      res = await widget.api.optAuthReq("User:flow", method: "POST", body: body);
     } on AtOnlinePlatformException {
       _showError();
       return;
