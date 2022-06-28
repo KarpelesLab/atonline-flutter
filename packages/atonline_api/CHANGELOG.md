@@ -1,3 +1,7 @@
+## [0.4.12] June 28th 2022
+
+* Fix map read
+
 ## [0.4.11] June 28th 2022
 
 * Testing token voiding

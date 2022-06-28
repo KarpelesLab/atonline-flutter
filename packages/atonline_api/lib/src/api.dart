@@ -248,7 +248,7 @@ class AtOnline with ChangeNotifier {
         var d = json.decode(res.body);
         print("Got error: ${res.body}");
         if (d.containsKey("token")) {
-          switch (d.token) {
+          switch (d["token"]) {
             case "error_invalid_oauth_refresh_token":
               // this is actually a login exception, the refresh token is not valid, void it
             print("got invalid token error, voiding token");
