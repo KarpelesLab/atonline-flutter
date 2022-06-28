@@ -1,4 +1,3 @@
-import 'dart:async';
 import 'dart:convert';
 import 'dart:core';
 import 'dart:io';
@@ -180,8 +179,25 @@ class AtOnline with ChangeNotifier {
           req.headers["Content-Type"] = "application/json";
         }
 
-        var stream = await http.Client().send(req);
-        res = await http.Response.fromStream(stream);
+        try {
+          var stream = await http.Client().send(req);
+          res = await http.Response.fromStream(stream);
+        } on http.ClientException catch(e) {
+          if (e.message == "Failed to parse header value") {
+            // [ERROR:flutter/lib/ui/ui_dart_state.cc(198)] Unhandled Exception: Failed to parse header value
+            // See: https://github.com/dart-lang/sdk/issues/46442
+            // Flutter does not handle properly Bearer auth failure and will return a crap error. Our token is shit.
+            if (!req.headers.containsKey("Authorization")) {
+              throw e;
+            }
+            expiresV = 0; // mark token has expired.
+            // retry
+            req.headers["Authorization"] = "Bearer " + await token();
+            var stream = await http.Client().send(req);
+            res = await http.Response.fromStream(stream);
+          }
+          throw e; // no idea
+        }
     }
 
     _updateCookie(res);

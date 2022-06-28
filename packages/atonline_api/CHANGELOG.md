@@ -1,3 +1,7 @@
+## [0.4.6] February 4th 2022
+
+* Catch weird flutter errors on invalid (revoked) bearer tokens
+
 ## [0.4.5] February 4th 2022
 
 * Cleanup and deps upgrade
