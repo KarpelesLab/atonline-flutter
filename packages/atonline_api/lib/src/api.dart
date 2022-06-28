@@ -247,11 +247,13 @@ class AtOnline with ChangeNotifier {
         // this is a platform error
         var d = json.decode(res.body);
         print("Got error: ${res.body}");
-        switch(d.token) {
-          case "error_invalid_oauth_refresh_token":
-            // this is actually a login exception, the refresh token is not valid, void it
-            voidToken();
-            throw new AtOnlineLoginException(d.error);
+        if (d.containsKey("token")) {
+          switch (d.token) {
+            case "error_invalid_oauth_refresh_token":
+              // this is actually a login exception, the refresh token is not valid, void it
+              voidToken();
+              throw new AtOnlineLoginException(d.error);
+          }
         }
         throw new AtOnlinePlatformException(d);
       }
@@ -384,7 +386,7 @@ class AtOnline with ChangeNotifier {
       if (tokenV != "") {
         tokenV = "";
         expiresV = 0;
-	notifyListeners(); // change in state → not logged in anymore
+	      notifyListeners(); // change in state → not logged in anymore
       }
       throw new AtOnlineLoginException("no token available");
     }
@@ -426,6 +428,12 @@ class AtOnline with ChangeNotifier {
 
   voidToken() async {
     // remove token
+    await Future.wait([
+      storage.delete(key: "access_token"),
+      storage.delete(key: "expires"),
+      storage.delete(key: "refresh_token")
+    ]);
+
     if (tokenV == "") {
       // nothing to do
       return;
@@ -433,11 +441,6 @@ class AtOnline with ChangeNotifier {
     expiresV = 0;
     tokenV = "";
 
-    await Future.wait([
-      storage.delete(key: "access_token"),
-      storage.delete(key: "expires"),
-      storage.delete(key: "refresh_token")
-    ]);
     notifyListeners();
   }
 

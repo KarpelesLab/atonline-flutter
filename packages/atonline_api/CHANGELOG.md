@@ -1,4 +1,9 @@
-## [0.4.8] June 28th 2022
+## [0.4.10] June 28th 2022
+
+* Properly void token on refresh token error
+
+
+## [0.4.9] June 28th 2022
 
 * Void token on refresh token error
 
