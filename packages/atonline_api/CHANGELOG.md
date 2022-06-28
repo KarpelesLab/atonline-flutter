@@ -1,3 +1,7 @@
+## [0.4.8] June 28th 2022
+
+* Void token on refresh token error
+
 ## [0.4.8] February 4th 2022
 
 * Handle invalid refresh token errors as login errors
