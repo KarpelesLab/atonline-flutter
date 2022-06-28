@@ -125,7 +125,12 @@ class _AtOnlineLoginPageBodyState extends State<AtOnlineLoginPageBody> {
     if (res["complete"]) {
       // we got a login!
       try {
-        await widget.api.storeToken(res["Token"]);
+        try {
+          await widget.api.storeToken(res["Token"]);
+        } catch(e) {
+          // token was invalid
+          await widget.api.voidToken();
+        }
         await widget.api.user.fetchLogin();
 
         if (widget.api.user.isLoggedIn()) {
@@ -149,10 +154,15 @@ class _AtOnlineLoginPageBodyState extends State<AtOnlineLoginPageBody> {
           }
           return;
         } else {
-          _showError();
-          return;
+          if (widget.onComplete != null) {
+            widget.onComplete!();
+          } else {
+            Navigator.of(context).pop();
+            Navigator.of(context).pushReplacementNamed("/home");
+          }
         }
       } catch (e) {
+        print("login error: $e");
         _showError();
         return;
       }

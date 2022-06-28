@@ -1,3 +1,7 @@
+## [0.4.6] - June 28th 2022
+
+* Accept completion without a valid token, in case of account deletion/etc
+
 ## [0.4.5] - June 11th 2022
 
 * Use authenticated requests in flow so requests other than login can be authenticated
