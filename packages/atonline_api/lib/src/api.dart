@@ -251,7 +251,8 @@ class AtOnline with ChangeNotifier {
           switch (d.token) {
             case "error_invalid_oauth_refresh_token":
               // this is actually a login exception, the refresh token is not valid, void it
-              voidToken();
+            print("got invalid token error, voiding token");
+              await voidToken();
               throw new AtOnlineLoginException(d.error);
           }
         }

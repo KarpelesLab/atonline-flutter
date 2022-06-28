@@ -1,7 +1,10 @@
+## [0.4.11] June 28th 2022
+
+* Testing token voiding
+
 ## [0.4.10] June 28th 2022
 
 * Properly void token on refresh token error
-
 
 ## [0.4.9] June 28th 2022
 
