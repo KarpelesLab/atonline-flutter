@@ -246,7 +246,12 @@ class AtOnline with ChangeNotifier {
       if (ct == "application/json") {
         // this is a platform error
         var d = json.decode(res.body);
-        print("Got error: ${d["error"]}");
+        print("Got error: ${res.body}");
+        switch(d.token) {
+          case "error_invalid_oauth_refresh_token":
+            // this is actually a login exception
+            throw new AtOnlineLoginException(d.error);
+        }
         throw new AtOnlinePlatformException(d);
       }
       print("Error from API: ${res.body}");

@@ -1,3 +1,7 @@
+## [0.4.8] February 4th 2022
+
+* Handle invalid refresh token errors as login errors
+
 ## [0.4.7] February 4th 2022
 
 * Catch in all cases
