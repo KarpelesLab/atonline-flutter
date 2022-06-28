@@ -154,7 +154,23 @@ class AtOnline with ChangeNotifier {
     switch (method) {
       case "GET":
         print("API GET request: $urlPath");
-        res = await http.get(urlPath, headers: headers);
+        try {
+          res = await http.get(urlPath, headers: headers);
+        } on http.ClientException catch(e) {
+          if (e.message == "Failed to parse header value") {
+            // [ERROR:flutter/lib/ui/ui_dart_state.cc(198)] Unhandled Exception: Failed to parse header value
+            // See: https://github.com/dart-lang/sdk/issues/46442
+            // Flutter does not handle properly Bearer auth failure and will return a crap error. Our token is shit.
+            if ((headers == null) || (!headers.containsKey("Authorization"))) {
+              throw e;
+            }
+            expiresV = 0; // mark token as expired.
+            // retry
+            headers["Authorization"] = "Bearer " + await token();
+            res = await http.get(urlPath, headers: headers);
+          }
+          throw e; // no idea
+        }
         break;
       case "POST":
         if (body != null) {
@@ -165,7 +181,23 @@ class AtOnline with ChangeNotifier {
           body = json.encode(body);
         }
 
-        res = await http.post(urlPath, body: body, headers: headers);
+        try {
+          res = await http.post(urlPath, body: body, headers: headers);
+        } on http.ClientException catch(e) {
+          if (e.message == "Failed to parse header value") {
+            // [ERROR:flutter/lib/ui/ui_dart_state.cc(198)] Unhandled Exception: Failed to parse header value
+            // See: https://github.com/dart-lang/sdk/issues/46442
+            // Flutter does not handle properly Bearer auth failure and will return a crap error. Our token is shit.
+            if ((headers == null) || (!headers.containsKey("Authorization"))) {
+              throw e;
+            }
+            expiresV = 0; // mark token as expired.
+            // retry
+            headers["Authorization"] = "Bearer " + await token();
+            res = await http.post(urlPath, body: body, headers: headers);
+          }
+          throw e; // no idea
+        }
         break;
       default:
         var req = http.Request(method, urlPath);
@@ -190,7 +222,7 @@ class AtOnline with ChangeNotifier {
             if (!req.headers.containsKey("Authorization")) {
               throw e;
             }
-            expiresV = 0; // mark token has expired.
+            expiresV = 0; // mark token as expired.
             // retry
             req.headers["Authorization"] = "Bearer " + await token();
             var stream = await http.Client().send(req);
