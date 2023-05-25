@@ -123,7 +123,7 @@ class LoginPageState extends State<LoginPage> {
   void loginListener(Uri l) async {
     var qp = l.queryParameters;
     if (qp["code"] == null) {
-      await closeWebView();
+      await closeInAppWebView();
       Navigator.of(context).pop();
       return;
     }
@@ -143,12 +143,12 @@ class LoginPageState extends State<LoginPage> {
 
     if (widget.api.user.isLoggedIn()) {
       print("closing view");
-      await closeWebView();
+      await closeInAppWebView();
       print("close complete");
       Navigator.of(context).pop();
       Navigator.of(context).pushReplacementNamed("/home");
     } else {
-      await closeWebView();
+      await closeInAppWebView();
       Navigator.of(context).pop();
     }
   }
@@ -156,7 +156,7 @@ class LoginPageState extends State<LoginPage> {
   void _initiateLogin() async {
     // perform login initialization
     Uri url = Uri.parse(widget.api.authEndpoint);
-    if (await canLaunch("atonline://oauth2/auth")) {
+    if (await canLaunchUrl(Uri.parse("atonline://oauth2/auth"))) {
       print("launch via local protocol");
       url = Uri.parse("atonline://oauth2/auth");
     }
@@ -179,7 +179,7 @@ class LoginPageState extends State<LoginPage> {
 
     // launch it
     print("launch url");
-    await launch(url.toString());
+    await launchUrl(url);
   }
 
   @override
