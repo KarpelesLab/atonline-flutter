@@ -1,3 +1,8 @@
+## [0.4.13] May 25th 2023
+
+* Updated dependencies
+
+
 ## [0.4.12] June 28th 2022
 
 * Fix map read
