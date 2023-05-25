@@ -1,3 +1,7 @@
+## [0.4.7] - May 25th 2023
+
+* Updated dependencies
+
 ## [0.4.6] - June 28th 2022
 
 * Accept completion without a valid token, in case of account deletion/etc
