@@ -131,6 +131,7 @@ class AtOnline with ChangeNotifier {
 
     _ctx["_ctx[l]"] = Intl.defaultLocale;
     _ctx["_ctx[t]"] = DateTime.now().timeZoneName; // grab timezone name...?
+    _ctx["_ctx[a]"] = appId
 
     if (context != null) {
       context.forEach((k, v) => _ctx["_ctx[" + k + "]"] = v);

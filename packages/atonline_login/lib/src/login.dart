@@ -306,7 +306,7 @@ class _AtOnlineLoginPageBodyState extends State<AtOnlineLoginPageBody> {
                 l.add(Text(info["label"].toString()));
               } else {
                 l.add(GestureDetector(
-                  onTap: () => launch(info["link"]),
+                  onTap: () => launchUrl(Uri.parse(info["link"])),
                   child: Text(
                     info["label"].toString(),
                     style: TextStyle(decoration: TextDecoration.underline),
@@ -379,7 +379,7 @@ class _AtOnlineLoginPageBodyState extends State<AtOnlineLoginPageBody> {
                   ),
                   info["link"] != null
                       ? GestureDetector(
-                          onTap: () => launch(info["link"]),
+                          onTap: () => launchUrl(Uri.parse(info["link"])),
                           child: Text(
                             info["label"].toString(),
                             style:
