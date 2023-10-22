@@ -1,3 +1,8 @@
+## [0.4.15] October 22nd 2023
+
+* Bump dependencies
+* Pass clientId in headers
+
 ## [0.4.14] May 25th 2023
 
 * Fix http dep to accept 0.13.6 or higher
