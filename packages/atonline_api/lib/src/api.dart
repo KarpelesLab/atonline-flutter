@@ -128,10 +128,10 @@ class AtOnline with ChangeNotifier {
     http.Response res;
 
     var _ctx = <String, String?>{};
+    headers ??= {};
 
     _ctx["_ctx[l]"] = Intl.defaultLocale;
     _ctx["_ctx[t]"] = DateTime.now().timeZoneName; // grab timezone name...?
-    _ctx["_ctx[a]"] = appId
 
     if (context != null) {
       context.forEach((k, v) => _ctx["_ctx[" + k + "]"] = v);
@@ -141,9 +141,9 @@ class AtOnline with ChangeNotifier {
     }
 
     if (cookies.isNotEmpty) {
-      headers ??= {};
       headers['cookie'] = _generateCookieHeader();
     }
+    headers["Sec-ClientId"] = appId;
 
     Uri urlPath = Uri.parse(prefix + path);
     urlPath = Uri(
@@ -162,7 +162,7 @@ class AtOnline with ChangeNotifier {
             // [ERROR:flutter/lib/ui/ui_dart_state.cc(198)] Unhandled Exception: Failed to parse header value
             // See: https://github.com/dart-lang/sdk/issues/46442
             // Flutter does not handle properly Bearer auth failure and will return a crap error. Our token is shit.
-            if ((headers == null) || (!headers.containsKey("Authorization"))) {
+            if (!headers.containsKey("Authorization")) {
               throw e;
             }
             expiresV = 0; // mark token as expired.
@@ -175,9 +175,6 @@ class AtOnline with ChangeNotifier {
         break;
       case "POST":
         if (body != null) {
-          if (headers == null) {
-            headers = <String, String>{};
-          }
           headers["Content-Type"] = "application/json";
           body = json.encode(body);
         }
@@ -189,7 +186,7 @@ class AtOnline with ChangeNotifier {
             // [ERROR:flutter/lib/ui/ui_dart_state.cc(198)] Unhandled Exception: Failed to parse header value
             // See: https://github.com/dart-lang/sdk/issues/46442
             // Flutter does not handle properly Bearer auth failure and will return a crap error. Our token is shit.
-            if ((headers == null) || (!headers.containsKey("Authorization"))) {
+            if (!headers.containsKey("Authorization")) {
               throw e;
             }
             expiresV = 0; // mark token as expired.
@@ -202,11 +199,9 @@ class AtOnline with ChangeNotifier {
         break;
       default:
         var req = http.Request(method, urlPath);
-        if (headers != null) {
-          headers.forEach((String k, String v) {
-            req.headers[k] = v;
-          });
-        }
+        headers.forEach((String k, String v) {
+          req.headers[k] = v;
+        });
         if (body != null) {
           req.body = json.encode(body);
           req.headers["Content-Type"] = "application/json";
