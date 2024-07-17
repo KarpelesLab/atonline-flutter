@@ -1,3 +1,7 @@
+## [0.4.16] July 17th 2024
+
+* Updated dependencies
+
 ## [0.4.15] October 22nd 2023
 
 * Bump dependencies
