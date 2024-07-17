@@ -1,3 +1,7 @@
+## [0.4.8] - July 17th 2024
+
+* Updated dependencies
+
 ## [0.4.7] - May 25th 2023
 
 * Updated dependencies
