@@ -4,7 +4,7 @@ import 'dart:math';
 import 'package:atonline_api/atonline_api.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
-import 'package:flutter_web_auth/flutter_web_auth.dart';
+import 'package:flutter_web_auth_2/flutter_web_auth_2.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import 'hexcolor.dart';
@@ -64,7 +64,7 @@ class _AtOnlineLoginPageBodyState extends State<AtOnlineLoginPageBody> {
   Future<Null> _doOauth2Login(String url) async {
     String result;
     try {
-      result = await FlutterWebAuth.authenticate(
+      result = await FlutterWebAuth2.authenticate(
           url: url, callbackUrlScheme: widget.callbackUrlScheme!);
     } catch (e) {
       _showError(msg: "Operation has been cancelled.");

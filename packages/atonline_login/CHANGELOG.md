@@ -1,3 +1,8 @@
+## [0.5.0] - Septembre 5th 2024
+
+* Switch flutter_web_auth → flutter_web_auth_2
+* Updated dependencies
+
 ## [0.4.8] - July 17th 2024
 
 * Updated dependencies
