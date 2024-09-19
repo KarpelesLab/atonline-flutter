@@ -1,3 +1,7 @@
+## [0.4.17] September 19th 2024
+
+* Replace uni_links with app_links
+
 ## [0.4.16] July 17th 2024
 
 * Updated dependencies
