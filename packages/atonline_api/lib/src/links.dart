@@ -1,6 +1,5 @@
+import 'package:app_links/app_links.dart';
 import 'package:flutter/foundation.dart';
-import 'package:flutter/services.dart' show PlatformException;
-import 'package:uni_links/uni_links.dart';
 
 typedef void LinkListener(Uri link);
 
@@ -36,12 +35,8 @@ class Links {
     }
   }
 
-  void _fireNotification(String prefix, Uri link) {
-    int pos = prefix.indexOf('?');
-    if (pos != -1) {
-      // need to remove query string from url
-      prefix = prefix.substring(0, pos);
-    }
+  void _fireNotification(Uri link) {
+    var prefix = link.path;
 
     while (!_listeners.containsKey(prefix)) {
       if (prefix.length < 8) return;
@@ -51,7 +46,7 @@ class Links {
         prefix = prefix.substring(0, prefix.length - 1);
 
       // find last /
-      pos = prefix.lastIndexOf('/');
+      var pos = prefix.lastIndexOf('/');
       if (pos == -1) return;
 
       // update prefix
@@ -75,19 +70,12 @@ class Links {
     }
   }
 
-  void processLink(String? link) {
-    Uri l = Uri.parse(link!);
-    _fireNotification(link, l);
+  void processLink(Uri link) {
+    _fireNotification(link);
   }
 
   Future<Null> _init() async {
-    try {
-      String? initialLink = await getInitialLink();
-      if (initialLink != null) {
-        processLink(initialLink);
-      }
-    } on PlatformException {}
-
-    linkStream.listen(processLink);
+    final appLinks = AppLinks();
+    appLinks.uriLinkStream.listen(processLink);
   }
 }
