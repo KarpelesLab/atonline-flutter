@@ -36,3 +36,9 @@ flutter:
 executables:
   atonline_describe: describe
 
+# This specifies which packages are needed for the CLI tool
+# but not required when just using the library
+# https://dart.dev/tools/pub/dependencies#dependency-only-used-in-executables
+dependency_overrides:
+  args: ^2.4.2
+

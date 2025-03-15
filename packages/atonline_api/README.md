@@ -69,21 +69,17 @@ void main() async {
 The package also provides a command-line tool to explore APIs directly from your terminal. After installing the package, you can use the `atonline_describe` command:
 
 ```bash
-# Basic usage
-atonline_describe --app-id=your_app_id User
+# Basic usage - no app ID required for OPTIONS requests!
+atonline_describe User
 
-# Authenticated request with code generation
-atonline_describe --app-id=your_app_id --auth --code User:get
+# Generate sample code for the endpoint
+atonline_describe --code User:get
+
+# Use a custom base URL (for private AtOnline instances)
+atonline_describe --base-url=https://yourdomain.atonline.com/_special/rest/ User
 
 # Show help information
 atonline_describe --help
 ```
 
-You can also set the `ATONLINE_APP_ID` environment variable instead of using the `--app-id` option:
-
-```bash
-export ATONLINE_APP_ID=your_app_id
-atonline_describe User
-```
-
-This tool helps developers quickly explore the API structure and understand available endpoints without writing any code.
+This tool makes direct OPTIONS requests to the API endpoints, which don't require authentication in most cases. It helps developers quickly explore the API structure and understand available endpoints without writing any code.
