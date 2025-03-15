@@ -66,14 +66,23 @@ void main() async {
 
 ### Command-Line API Explorer
 
-The package also provides a command-line tool to explore APIs directly from your terminal. After installing the package, you can use the `atonline_describe` command:
+The package provides a command-line tool to explore the AtOnline API schema directly from your terminal. After installing the package, you can use the `atonline_describe` command:
 
 ```bash
-# Basic usage - no app ID required for OPTIONS requests!
+# Install the package globally
+dart pub global activate atonline_api
+
+# Basic usage to explore the User API
 atonline_describe User
 
-# Generate sample code for the endpoint
-atonline_describe --code User:get
+# Show information about specific endpoints
+atonline_describe User:get
+
+# Generate Dart code for the endpoint
+atonline_describe --code User
+
+# Show detailed response information
+atonline_describe --verbose User
 
 # Use a custom base URL (for private AtOnline instances)
 atonline_describe --base-url=https://yourdomain.atonline.com/_special/rest/ User
@@ -82,4 +91,11 @@ atonline_describe --base-url=https://yourdomain.atonline.com/_special/rest/ User
 atonline_describe --help
 ```
 
-This tool makes direct OPTIONS requests to the API endpoints, which don't require authentication in most cases. It helps developers quickly explore the API structure and understand available endpoints without writing any code.
+The tool sends OPTIONS requests to the API to retrieve detailed schema information, including:
+- Available HTTP methods
+- Database table structure
+- Field types, constraints, and validations
+- Access permissions
+- Key relationships
+
+For developers, this provides an easy way to explore the API without reading through documentation or writing test code. The `--code` option will even generate Dart code templates for interacting with the endpoints.
