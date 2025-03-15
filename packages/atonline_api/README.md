@@ -63,3 +63,27 @@ void main() async {
   print(code);
 }
 ```
+
+### Command-Line API Explorer
+
+The package also provides a command-line tool to explore APIs directly from your terminal. After installing the package, you can use the `atonline_describe` command:
+
+```bash
+# Basic usage
+atonline_describe --app-id=your_app_id User
+
+# Authenticated request with code generation
+atonline_describe --app-id=your_app_id --auth --code User:get
+
+# Show help information
+atonline_describe --help
+```
+
+You can also set the `ATONLINE_APP_ID` environment variable instead of using the `--app-id` option:
+
+```bash
+export ATONLINE_APP_ID=your_app_id
+atonline_describe User
+```
+
+This tool helps developers quickly explore the API structure and understand available endpoints without writing any code.
