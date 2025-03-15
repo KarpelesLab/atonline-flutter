@@ -84,8 +84,17 @@ atonline_describe --code User
 # Show detailed response information
 atonline_describe --verbose User
 
-# Use a custom base URL (for private AtOnline instances)
-atonline_describe --base-url=https://yourdomain.atonline.com/_special/rest/ User
+# Use a custom base URL
+atonline_describe --base-url=https://ws.atonline.com/_special/rest/ User
+
+# Get a list of all top-level endpoints (explore the root)
+atonline_describe --base-url=https://ws.atonline.com/_special/rest/ /
+
+# Recursive exploration of endpoints and their sub-endpoints
+atonline_describe --recursive --depth=2 --base-url=https://ws.atonline.com/_special/rest/ User
+
+# Shorthand form for recursive exploration with depth 1
+atonline_describe -r -d 1 --base-url=https://ws.atonline.com/_special/rest/ /
 
 # Show help information
 atonline_describe --help
@@ -97,5 +106,36 @@ The tool sends OPTIONS requests to the API to retrieve detailed schema informati
 - Field types, constraints, and validations
 - Access permissions
 - Key relationships
+- Sub-endpoints and their available methods
+
+#### Recursive Exploration
+
+The `--recursive` (or `-r`) flag enables recursive exploration of endpoints, traversing through sub-endpoints automatically. This is especially useful for:
+
+1. Discovering the full API structure starting from the root (`/`)
+2. Automatically documenting a large section of the API
+3. Finding all available operations within a specific domain (e.g., all User-related endpoints)
+
+The `--depth` parameter controls how many levels deep the recursive exploration goes:
+- Depth 1: Only immediate sub-endpoints
+- Depth 2: Sub-endpoints and their sub-endpoints
+- And so on...
+
+Example output of recursive exploration:
+```
+Exploring API endpoint: /
+...
+Sub-Endpoints:
+  User [SUB, OPTIONS, GET, POST, PATCH]
+  Order [SUB, OPTIONS, GET, POST]
+  ...
+
+=================>  Exploring: /User (Depth: 1 of 1)
+...
+Sub-Endpoints:
+  Profile [OPTIONS, GET, PATCH]
+  Wallet [SUB, OPTIONS, GET]
+  ...
+```
 
 For developers, this provides an easy way to explore the API without reading through documentation or writing test code. The `--code` option will even generate Dart code templates for interacting with the endpoints.

@@ -11,6 +11,8 @@ void main(List<String> args) async {
     ..addFlag('help', abbr: 'h', negatable: false, help: 'Show usage information')
     ..addFlag('code', abbr: 'c', negatable: false, help: 'Generate sample code')
     ..addFlag('verbose', abbr: 'v', negatable: false, help: 'Show detailed response information')
+    ..addFlag('recursive', abbr: 'r', negatable: false, help: 'Recursively explore sub-endpoints')
+    ..addOption('depth', abbr: 'd', help: 'Maximum depth for recursive exploration', defaultsTo: '1')
     ..addOption('base-url', abbr: 'u', 
         help: 'Base URL for API requests',
         defaultsTo: 'https://hub.atonline.com/_special/rest/')
@@ -27,172 +29,218 @@ void main(List<String> args) async {
     final endpoint = results.rest[0];
     final generateCode = results['code'];
     final verbose = results['verbose'];
+    final recursive = results['recursive'];
+    final maxDepth = int.parse(results['depth']);
     final baseUrl = results['base-url'];
     final appId = results['app-id'] ?? Platform.environment['ATONLINE_APP_ID'];
 
-    try {
-      // Make request to the API
-      print('Exploring API endpoint: $endpoint');
-      print('API Base URL: $baseUrl');
-      print('');
-      
-      final url = Uri.parse('$baseUrl$endpoint');
-      final headers = <String, String>{};
-      
-      if (appId != null) {
-        headers['Sec-ClientId'] = appId;
-      }
-      
-      // Get detailed information with OPTIONS request or just do a GET
-      final method = 'OPTIONS';
-      final request = http.Request(method, url);
-      request.headers.addAll(headers);
-      
-      final streamedResponse = await http.Client().send(request);
-      final response = await http.Response.fromStream(streamedResponse);
-      
-      if (response.statusCode >= 300) {
-        print('Error: Server returned status code ${response.statusCode}');
-        if (response.body.isNotEmpty) {
-          print(response.body);
-        }
-        exit(2);
-      }
-      
-      // Print raw response for debugging if verbose
-      if (verbose) {
-        print('Status code: ${response.statusCode}');
-        print('Headers: ${response.headers}');
-        print('Body length: ${response.body.length}');
-        print('Response body:');
-        print('---');
-        print(response.body.substring(0, response.body.length.clamp(0, 5000)));
-        if (response.body.length > 5000) print('...(truncated)');
-        print('---\n');
-      }
-      
-      // Parse the response
-      final dynamic data;
-      try {
-        if (response.body.isNotEmpty) {
-          data = json.decode(response.body);
-        } else {
-          data = {};
-        }
-      } catch (e) {
-        print('Error: Failed to parse response as JSON: $e');
-        exit(3);
-      }
-      
-      // Extract API info from AtOnline's response format
-      if (data is Map && data.containsKey('result') && data['result'] == 'success' && data.containsKey('data')) {
-        final apiData = data['data'];
-        
-        print('API Endpoint: $endpoint');
-        
-        // Extract allowed methods
-        final List<String> methods = [];
-        if (apiData is Map) {
-          // Check both allowed_methods (table) and allowed_methods_object (no table)
-          final methodsKeys = ['allowed_methods', 'allowed_methods_object'];
-          
-          for (final key in methodsKeys) {
-            if (apiData.containsKey(key) && apiData[key] is List) {
-              methods.addAll((apiData[key] as List).map((m) => m.toString()));
-            }
-          }
-          
-          // Check Access-Control headers for methods
-          if (methods.isEmpty && data.containsKey('headers')) {
-            final headers = data['headers'];
-            if (headers is Map && headers.containsKey('Access-Control-Allow-Methods')) {
-              final methodsStr = headers['Access-Control-Allow-Methods'].toString();
-              methods.addAll(methodsStr.split(',').map((m) => m.trim()));
-            }
-          }
-          
-          if (methods.isNotEmpty) {
-            print('Available Methods: ${methods.join(', ')}');
-          }
-          
-          // Print table structure if available
-          if (apiData.containsKey('table') && apiData['table'] is Map) {
-            final table = apiData['table'];
-            if (table.containsKey('Name')) {
-              print('\nTable: ${table['Name']}');
-            }
-            
-            if (table.containsKey('Struct') && table['Struct'] is Map) {
-              print('\nFields:');
-              _printStructure(table['Struct'], '  ');
-            }
-          }
+    if (recursive) {
+      await _exploreRecursively(endpoint, baseUrl, appId, verbose, generateCode, 0, maxDepth);
+    } else {
+      // Regular single endpoint exploration
+      await _exploreEndpoint(endpoint, baseUrl, appId, verbose, generateCode);
+    }
+  } catch (e) {
+    print('Error parsing arguments: $e');
+    _printUsage(parser);
+    exit(1);
+  }
+}
 
-          // Print object structure if available
-          if (apiData.containsKey('object') && apiData['object'] is Map) {
-            print('\nObject Structure:');
-            _printMap(apiData['object'], '  ');
+/// Explores a single API endpoint and prints information about it
+Future<Map<String, dynamic>> _exploreEndpoint(String endpoint, String baseUrl, String? appId, 
+    bool verbose, bool generateCode) async {
+  try {
+    // Make request to the API
+    print('Exploring API endpoint: $endpoint');
+    print('API Base URL: $baseUrl');
+    print('');
+      
+    // Handle the root endpoint specially to avoid double slashes
+    String fullUrl;
+    if (endpoint.isEmpty || endpoint == '/') {
+      fullUrl = baseUrl.endsWith('/') ? baseUrl : '$baseUrl/';
+    } else {
+      fullUrl = '$baseUrl${endpoint.startsWith('/') ? endpoint.substring(1) : endpoint}';
+    }
+    
+    final url = Uri.parse(fullUrl);
+    print('Request URL: $url');
+    print('');
+    
+    final headers = <String, String>{};
+    
+    if (appId != null) {
+      headers['Sec-ClientId'] = appId;
+    }
+    
+    // Get detailed information with OPTIONS request or just do a GET
+    final method = 'OPTIONS';
+    final request = http.Request(method, url);
+    request.headers.addAll(headers);
+    
+    final streamedResponse = await http.Client().send(request);
+    final response = await http.Response.fromStream(streamedResponse);
+    
+    if (response.statusCode >= 300) {
+      print('Error: Server returned status code ${response.statusCode}');
+      
+      // Handle redirects - show where they're redirecting to
+      if (response.statusCode == 301 || response.statusCode == 302) {
+        if (response.headers.containsKey('location')) {
+          print('Redirect to: ${response.headers['location']}');
+        }
+      }
+      
+      if (response.body.isNotEmpty) {
+        print(response.body);
+      }
+      return <String, dynamic>{}; // Return empty map on error
+    }
+      
+    // Print raw response for debugging if verbose
+    if (verbose) {
+      print('Status code: ${response.statusCode}');
+      print('Headers: ${response.headers}');
+      print('Body length: ${response.body.length}');
+      print('Response body:');
+      print('---');
+      print(response.body.substring(0, response.body.length.clamp(0, 5000)));
+      if (response.body.length > 5000) print('...(truncated)');
+      print('---\n');
+    }
+    
+    // Parse the response
+    final dynamic data;
+    try {
+      if (response.body.isNotEmpty) {
+        data = json.decode(response.body);
+      } else {
+        data = {};
+      }
+    } catch (e) {
+      print('Error: Failed to parse response as JSON: $e');
+      return <String, dynamic>{}; // Return empty map on parsing error
+    }
+    
+    // Extract API info from AtOnline's response format
+    if (data is Map && data.containsKey('result') && data['result'] == 'success' && data.containsKey('data')) {
+      final apiData = data['data'];
+      
+      print('API Endpoint: $endpoint');
+      
+      // Extract allowed methods
+      final List<String> methods = [];
+      if (apiData is Map) {
+        // Check both allowed_methods (table) and allowed_methods_object (no table)
+        final methodsKeys = ['allowed_methods', 'allowed_methods_object'];
+        
+        for (final key in methodsKeys) {
+          if (apiData.containsKey(key) && apiData[key] is List) {
+            methods.addAll((apiData[key] as List).map((m) => m.toString()));
+          }
+        }
+        
+        // Check Access-Control headers for methods
+        if (methods.isEmpty && data.containsKey('headers')) {
+          final headers = data['headers'];
+          if (headers is Map && headers.containsKey('Access-Control-Allow-Methods')) {
+            final methodsStr = headers['Access-Control-Allow-Methods'].toString();
+            methods.addAll(methodsStr.split(',').map((m) => m.trim()));
+          }
+        }
+        
+        if (methods.isNotEmpty) {
+          print('Available Methods: ${methods.join(', ')}');
+        }
+        
+        // Print table structure if available
+        if (apiData.containsKey('table') && apiData['table'] is Map) {
+          final table = apiData['table'];
+          if (table.containsKey('Name')) {
+            print('\nTable: ${table['Name']}');
           }
           
-          // Print children/sub-endpoints if available
-          final subEndpointKeys = ['children', 'prefix'];
-          for (final subKey in subEndpointKeys) {
-            if (apiData.containsKey(subKey) && apiData[subKey] is List) {
-              final endpoints = apiData[subKey] as List;
-              if (endpoints.isNotEmpty) {
-                print('\nSub-Endpoints:');
-                for (final sub in endpoints) {
-                  if (sub is Map) {
-                    String name = sub.containsKey('Key') ? sub['Key'] : 
-                                 sub.containsKey('name') ? sub['name'] : '(unknown)';
-                    
-                    // Include methods if available
-                    String methodsInfo = '';
-                    if (sub.containsKey('methods') && sub['methods'] is List) {
-                      methodsInfo = ' [${(sub['methods'] as List).join(', ')}]';
-                    }
-                    
-                    // Include description if available
-                    String description = '';
-                    if (sub.containsKey('Description')) {
-                      description = ' - ${sub['Description']}';
-                    }
-                    
-                    print('  $name$methodsInfo$description');
-                  } else if (sub is String) {
-                    print('  $sub');
+          if (table.containsKey('Struct') && table['Struct'] is Map) {
+            print('\nFields:');
+            _printStructure(table['Struct'], '  ');
+          }
+        }
+
+        // Print object structure if available
+        if (apiData.containsKey('object') && apiData['object'] is Map) {
+          print('\nObject Structure:');
+          _printMap(apiData['object'], '  ');
+        }
+        
+        // Print children/sub-endpoints if available
+        final subEndpointKeys = ['children', 'prefix'];
+        List<Map<String, dynamic>> subEndpoints = [];
+        
+        for (final subKey in subEndpointKeys) {
+          if (apiData.containsKey(subKey) && apiData[subKey] is List) {
+            final endpoints = apiData[subKey] as List;
+            if (endpoints.isNotEmpty) {
+              print('\nSub-Endpoints:');
+              for (final sub in endpoints) {
+                if (sub is Map) {
+                  String name = sub.containsKey('Key') ? sub['Key'] : 
+                               sub.containsKey('name') ? sub['name'] : '(unknown)';
+                  
+                  // Include methods if available
+                  String methodsInfo = '';
+                  if (sub.containsKey('methods') && sub['methods'] is List) {
+                    methodsInfo = ' [${(sub['methods'] as List).join(', ')}]';
                   }
+                  
+                  // Include description if available
+                  String description = '';
+                  if (sub.containsKey('Description')) {
+                    description = ' - ${sub['Description']}';
+                  }
+                  
+                  print('  $name$methodsInfo$description');
+                  
+                  // Add to list of sub-endpoints for recursive exploration
+                  subEndpoints.add({
+                    'name': name,
+                    'methods': sub['methods'] ?? [],
+                    'description': sub['Description'] ?? '',
+                  });
+                } else if (sub is String) {
+                  print('  $sub');
+                  subEndpoints.add({'name': sub, 'methods': [], 'description': ''});
                 }
               }
             }
           }
-          
-          // Print access information
-          if (apiData.containsKey('access')) {
-            print('\nAccess: ${apiData['access']}');
-          }
-          
-          // Show any other interesting properties
-          final keysToShow = {
-            'Description': 'Description',
-            'Full_Key': 'Full Key',
-            'Path': 'Path',
-            'module': 'Module',
-            'api_class': 'API Class',
-          };
-          
-          keysToShow.forEach((key, label) {
-            if (apiData.containsKey(key)) {
-              final value = apiData[key];
-              if (value is List) {
-                print('\n$label: ${value.join('/')}');
-              } else {
-                print('\n$label: $value');
-              }
-            }
-          });
         }
-
+        
+        // Print access information
+        if (apiData.containsKey('access')) {
+          print('\nAccess: ${apiData['access']}');
+        }
+        
+        // Show any other interesting properties
+        final keysToShow = {
+          'Description': 'Description',
+          'Full_Key': 'Full Key',
+          'Path': 'Path',
+          'module': 'Module',
+          'api_class': 'API Class',
+        };
+        
+        keysToShow.forEach((key, label) {
+          if (apiData.containsKey(key)) {
+            final value = apiData[key];
+            if (value is List) {
+              print('\n$label: ${value.join('/')}');
+            } else {
+              print('\n$label: $value');
+            }
+          }
+        });
+        
         // Generate and print code if requested
         if (generateCode && methods.isNotEmpty) {
           final code = _generateEndpointCode(endpoint, methods, appId);
@@ -200,68 +248,137 @@ void main(List<String> args) async {
           print('---------------');
           print(code);
         }
-      } else {
-        // Handle non-standard response
-        print('API Endpoint: $endpoint');
         
-        // Try to extract methods from headers if present
-        final List<String> methods = [];
-        if (data is Map && data.containsKey('headers')) {
-          final headers = data['headers'];
-          if (headers is Map && headers.containsKey('access-control-allow-methods')) {
-            final methodsStr = headers['access-control-allow-methods'].toString();
-            methods.addAll(methodsStr.split(',').map((m) => m.trim()));
-            print('Available Methods: ${methods.join(', ')}');
-          }
-        }
-        
-        // Check if we have some data to show
-        var hasShownData = false;
-        
-        if (data is Map) {
-          // Show interesting top-level fields
-          final interestingKeys = ['Full_Key', 'Path', 'Description', 'children'];
-          for (final key in interestingKeys) {
-            if (data.containsKey(key)) {
-              hasShownData = true;
-              final value = data[key];
-              if (value is List) {
-                print('\n${key.replaceAll('_', ' ')}: ${value.join('/')}');
-              } else {
-                print('\n${key.replaceAll('_', ' ')}: $value');
-              }
-            }
-          }
-          
-          // If the data key contains a Map of endpoints, show them
-          if (data.containsKey('data') && data['data'] is Map && (data['data'] as Map).isNotEmpty) {
-            hasShownData = true;
-            print('\nAvailable Endpoints:');
-            _printMap(data['data'], '  ');
-          }
-          
-          // If we haven't shown any useful data yet, just show the raw response
-          if (!hasShownData && verbose) {
-            print('\nRaw Response:');
-            _printMap(data, '  ');
-          }
-        }
-        
-        // Generate code even with limited information if methods are available
-        if (generateCode && methods.isNotEmpty) {
-          print('\nGenerated Code:');
-          print('---------------');
-          print(_generateEndpointCode(endpoint, methods, appId));
+        // Return data with sub-endpoints for recursive exploration
+        return {
+          'data': apiData,
+          'methods': methods,
+          'subEndpoints': subEndpoints,
+        };
+      }
+    } else {
+      // Handle non-standard response
+      print('API Endpoint: $endpoint');
+      
+      // Try to extract methods from headers if present
+      final List<String> methods = [];
+      if (data is Map && data.containsKey('headers')) {
+        final headers = data['headers'];
+        if (headers is Map && headers.containsKey('access-control-allow-methods')) {
+          final methodsStr = headers['access-control-allow-methods'].toString();
+          methods.addAll(methodsStr.split(',').map((m) => m.trim()));
+          print('Available Methods: ${methods.join(', ')}');
         }
       }
-    } catch (e) {
-      print('Error: $e');
-      exit(2);
+      
+      // Check if we have some data to show
+      var hasShownData = false;
+      List<Map<String, dynamic>> subEndpoints = [];
+      
+      if (data is Map) {
+        // Show interesting top-level fields
+        final interestingKeys = ['Full_Key', 'Path', 'Description', 'children'];
+        for (final key in interestingKeys) {
+          if (data.containsKey(key)) {
+            hasShownData = true;
+            final value = data[key];
+            if (value is List) {
+              print('\n${key.replaceAll('_', ' ')}: ${value.join('/')}');
+              
+              // Add children as subEndpoints if available
+              if (key == 'children' && value is List) {
+                for (final child in value) {
+                  if (child is Map) {
+                    String name = child['name'] ?? child['Key'] ?? '';
+                    subEndpoints.add({
+                      'name': name,
+                      'methods': child['methods'] ?? [],
+                      'description': child['Description'] ?? '',
+                    });
+                  } else if (child is String) {
+                    subEndpoints.add({'name': child, 'methods': [], 'description': ''});
+                  }
+                }
+              }
+            } else {
+              print('\n${key.replaceAll('_', ' ')}: $value');
+            }
+          }
+        }
+        
+        // If the data key contains a Map of endpoints, show them
+        if (data.containsKey('data') && data['data'] is Map && (data['data'] as Map).isNotEmpty) {
+          hasShownData = true;
+          print('\nAvailable Endpoints:');
+          _printMap(data['data'], '  ');
+          
+          // Add data entries as subEndpoints
+          data['data'].forEach((key, value) {
+            subEndpoints.add({'name': key, 'methods': [], 'description': ''});
+          });
+        }
+        
+        // If we haven't shown any useful data yet, just show the raw response
+        if (!hasShownData && verbose) {
+          print('\nRaw Response:');
+          _printMap(data, '  ');
+        }
+      }
+      
+      // Generate code even with limited information if methods are available
+      if (generateCode && methods.isNotEmpty) {
+        print('\nGenerated Code:');
+        print('---------------');
+        print(_generateEndpointCode(endpoint, methods, appId));
+      }
+      
+      // Return data with any found sub-endpoints
+      return {
+        'data': data,
+        'methods': methods,
+        'subEndpoints': subEndpoints,
+      };
     }
+    
+    return <String, dynamic>{};
   } catch (e) {
-    print('Error parsing arguments: $e');
-    _printUsage(parser);
-    exit(1);
+    print('Error: $e');
+    return <String, dynamic>{};
+  }
+}
+
+/// Recursively explores API endpoints up to a maximum depth
+Future<void> _exploreRecursively(String endpoint, String baseUrl, String? appId, 
+    bool verbose, bool generateCode, int currentDepth, int maxDepth) async {
+  
+  if (currentDepth > maxDepth) {
+    return;
+  }
+  
+  // Print depth indicator
+  String depthPrefix = '=' * (currentDepth + 1) + '> ';
+  if (currentDepth > 0) {
+    print('\n$depthPrefix Exploring: $endpoint (Depth: $currentDepth of $maxDepth)');
+  }
+  
+  // Explore current endpoint
+  final result = await _exploreEndpoint(endpoint, baseUrl, appId, verbose, generateCode);
+  
+  // Stop if we've reached max depth or got no results
+  if (currentDepth >= maxDepth || result.isEmpty || !result.containsKey('subEndpoints')) {
+    return;
+  }
+  
+  // Get list of sub-endpoints to explore
+  final subEndpoints = result['subEndpoints'] as List<Map<String, dynamic>>;
+  
+  // Recursively explore each sub-endpoint
+  for (final sub in subEndpoints) {
+    String name = sub['name'];
+    String subPath = endpoint.endsWith('/') || endpoint.isEmpty ? '$endpoint$name' : '$endpoint/$name';
+    
+    print('\n${'-' * 80}');
+    await _exploreRecursively(subPath, baseUrl, appId, verbose, generateCode, currentDepth + 1, maxDepth);
   }
 }
 
@@ -360,7 +477,9 @@ void _printUsage(ArgParser parser) {
   print('Examples:');
   print('  atonline_describe User');
   print('  atonline_describe --code User:get');
-  print('  atonline_describe --verbose --base-url=https://yourdomain.atonline.com/_special/rest/ User');
+  print('  atonline_describe --verbose --base-url=https://ws.atonline.com/_special/rest/ User');
+  print('  atonline_describe --recursive --depth=2 --base-url=https://ws.atonline.com/_special/rest/ User');
+  print('  atonline_describe -r -d 1 / # List all top-level endpoints');
   print('');
 }
 

@@ -1,3 +1,9 @@
+## [0.4.18] March 16th 2025
+
+* Enhanced API explorer command-line tool with recursive mode
+* Added ws.atonline.com endpoint support
+* Improved documentation for API explorer capabilities
+
 ## [0.4.17] September 19th 2024
 
 * Replace uni_links with app_links
