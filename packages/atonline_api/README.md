@@ -13,7 +13,7 @@ user accounts (oauth2), and all the services provided by AtOnline.
 - API request handling with automatic authentication
 - Deep link handling for authentication flow
 - User profile management
-- API discovery and documentation
+- Command-line API explorer tool with recursive exploration
 
 ## Usage
 
@@ -41,26 +41,6 @@ void main() async {
   } catch (e) {
     print('Error: $e');
   }
-}
-```
-
-### API Explorer
-
-The package includes an API Explorer tool that allows you to discover available endpoints and their documentation:
-
-```dart
-import 'package:atonline_api/atonline_api.dart';
-
-void main() async {
-  final api = AtOnline('your_app_id');
-  final explorer = ApiExplorer(api);
-  
-  // Explore an API endpoint
-  await explorer.exploreEndpoint('User:get', authenticated: true);
-  
-  // Generate code for interacting with an endpoint
-  final code = await explorer.generateEndpointCode('User:get', authenticated: true);
-  print(code);
 }
 ```
 
