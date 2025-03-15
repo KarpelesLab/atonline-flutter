@@ -93,11 +93,27 @@ void main(List<String> args) async {
         // Extract allowed methods
         final List<String> methods = [];
         if (apiData is Map) {
-          if (apiData.containsKey('allowed_methods') && apiData['allowed_methods'] is List) {
-            methods.addAll((apiData['allowed_methods'] as List).map((m) => m.toString()));
+          // Check both allowed_methods (table) and allowed_methods_object (no table)
+          final methodsKeys = ['allowed_methods', 'allowed_methods_object'];
+          
+          for (final key in methodsKeys) {
+            if (apiData.containsKey(key) && apiData[key] is List) {
+              methods.addAll((apiData[key] as List).map((m) => m.toString()));
+            }
           }
           
-          print('Available Methods: ${methods.join(', ')}');
+          // Check Access-Control headers for methods
+          if (methods.isEmpty && data.containsKey('headers')) {
+            final headers = data['headers'];
+            if (headers is Map && headers.containsKey('Access-Control-Allow-Methods')) {
+              final methodsStr = headers['Access-Control-Allow-Methods'].toString();
+              methods.addAll(methodsStr.split(',').map((m) => m.trim()));
+            }
+          }
+          
+          if (methods.isNotEmpty) {
+            print('Available Methods: ${methods.join(', ')}');
+          }
           
           // Print table structure if available
           if (apiData.containsKey('table') && apiData['table'] is Map) {
@@ -118,6 +134,39 @@ void main(List<String> args) async {
             _printMap(apiData['object'], '  ');
           }
           
+          // Print children/sub-endpoints if available
+          final subEndpointKeys = ['children', 'prefix'];
+          for (final subKey in subEndpointKeys) {
+            if (apiData.containsKey(subKey) && apiData[subKey] is List) {
+              final endpoints = apiData[subKey] as List;
+              if (endpoints.isNotEmpty) {
+                print('\nSub-Endpoints:');
+                for (final sub in endpoints) {
+                  if (sub is Map) {
+                    String name = sub.containsKey('Key') ? sub['Key'] : 
+                                 sub.containsKey('name') ? sub['name'] : '(unknown)';
+                    
+                    // Include methods if available
+                    String methodsInfo = '';
+                    if (sub.containsKey('methods') && sub['methods'] is List) {
+                      methodsInfo = ' [${(sub['methods'] as List).join(', ')}]';
+                    }
+                    
+                    // Include description if available
+                    String description = '';
+                    if (sub.containsKey('Description')) {
+                      description = ' - ${sub['Description']}';
+                    }
+                    
+                    print('  $name$methodsInfo$description');
+                  } else if (sub is String) {
+                    print('  $sub');
+                  }
+                }
+              }
+            }
+          }
+          
           // Print access information
           if (apiData.containsKey('access')) {
             print('\nAccess: ${apiData['access']}');
@@ -127,17 +176,25 @@ void main(List<String> args) async {
           final keysToShow = {
             'Description': 'Description',
             'Full_Key': 'Full Key',
+            'Path': 'Path',
+            'module': 'Module',
+            'api_class': 'API Class',
           };
           
           keysToShow.forEach((key, label) {
             if (apiData.containsKey(key)) {
-              print('\n$label: ${apiData[key]}');
+              final value = apiData[key];
+              if (value is List) {
+                print('\n$label: ${value.join('/')}');
+              } else {
+                print('\n$label: $value');
+              }
             }
           });
         }
 
         // Generate and print code if requested
-        if (generateCode) {
+        if (generateCode && methods.isNotEmpty) {
           final code = _generateEndpointCode(endpoint, methods, appId);
           print('\nGenerated Code:');
           print('---------------');
@@ -145,15 +202,56 @@ void main(List<String> args) async {
         }
       } else {
         // Handle non-standard response
-        print('Warning: Unexpected response format');
         print('API Endpoint: $endpoint');
-        _printMap(data, '  ');
         
-        // Try to generate code even with limited information
-        if (generateCode) {
+        // Try to extract methods from headers if present
+        final List<String> methods = [];
+        if (data is Map && data.containsKey('headers')) {
+          final headers = data['headers'];
+          if (headers is Map && headers.containsKey('access-control-allow-methods')) {
+            final methodsStr = headers['access-control-allow-methods'].toString();
+            methods.addAll(methodsStr.split(',').map((m) => m.trim()));
+            print('Available Methods: ${methods.join(', ')}');
+          }
+        }
+        
+        // Check if we have some data to show
+        var hasShownData = false;
+        
+        if (data is Map) {
+          // Show interesting top-level fields
+          final interestingKeys = ['Full_Key', 'Path', 'Description', 'children'];
+          for (final key in interestingKeys) {
+            if (data.containsKey(key)) {
+              hasShownData = true;
+              final value = data[key];
+              if (value is List) {
+                print('\n${key.replaceAll('_', ' ')}: ${value.join('/')}');
+              } else {
+                print('\n${key.replaceAll('_', ' ')}: $value');
+              }
+            }
+          }
+          
+          // If the data key contains a Map of endpoints, show them
+          if (data.containsKey('data') && data['data'] is Map && (data['data'] as Map).isNotEmpty) {
+            hasShownData = true;
+            print('\nAvailable Endpoints:');
+            _printMap(data['data'], '  ');
+          }
+          
+          // If we haven't shown any useful data yet, just show the raw response
+          if (!hasShownData && verbose) {
+            print('\nRaw Response:');
+            _printMap(data, '  ');
+          }
+        }
+        
+        // Generate code even with limited information if methods are available
+        if (generateCode && methods.isNotEmpty) {
           print('\nGenerated Code:');
           print('---------------');
-          print(_generateEndpointCode(endpoint, ['GET', 'POST'], appId));
+          print(_generateEndpointCode(endpoint, methods, appId));
         }
       }
     } catch (e) {
