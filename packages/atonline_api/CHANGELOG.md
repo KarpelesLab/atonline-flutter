@@ -1,3 +1,13 @@
+## [0.4.19] March 16th 2025
+
+* Refactored core classes for better error handling and performance:
+  * Improved token refresh logic with better error handling
+  * Enhanced HTTP request handling with proper error tracking
+  * Added better null safety throughout the codebase
+  * Improved cookie handling for better compatibility
+  * Enhanced Links class with better URI handling and debugging
+  * Added convenience methods to User class for profile management
+
 ## [0.4.18] March 16th 2025
 
 * Enhanced API explorer command-line tool with recursive mode

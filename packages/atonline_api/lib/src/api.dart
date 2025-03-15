@@ -173,112 +173,36 @@ class AtOnline with ChangeNotifier {
       Map<String, String>? headers,
       Map<String, String>? context,
       bool skipDecode = false}) async {
-    print("Running $method $path");
+    if (kDebugMode) {
+      print("Running $method $path");
+    }
 
-    http.Response res;
-
-    var _ctx = <String, String?>{};
+    // Prepare request parameters
     headers ??= {};
-
-    // Add locale and timezone to context
-    _ctx["_ctx[l]"] = Intl.defaultLocale;
-    _ctx["_ctx[t]"] = DateTime.now().timeZoneName; // grab timezone name
-
-    // Add custom context parameters
-    if (context != null) {
-      context.forEach((k, v) => _ctx["_ctx[" + k + "]"] = v);
-    }
-    // For GET requests, body is passed as a special query parameter
-    if ((method == "GET") && (body != null)) {
-      _ctx["_"] = json.encode(body);
-    }
-
-    // Add cookies if present
+    var _ctx = await _prepareRequestContext(context, method, body);
+    
+    // Add cookies and client ID
     if (cookies.isNotEmpty) {
       headers['cookie'] = _generateCookieHeader();
     }
-    // Add client ID header
     headers["Sec-ClientId"] = appId;
 
     // Construct the full URL with query parameters
-    Uri urlPath = Uri.parse(prefix + path);
-    urlPath = Uri(
-        scheme: urlPath.scheme,
-        host: urlPath.host,
-        path: urlPath.path,
-        queryParameters: _ctx);
+    Uri urlPath = _buildRequestUrl(path, _ctx);
+    
+    if (kDebugMode) {
+      print("API $method request: $urlPath");
+    }
 
-    // Execute request based on HTTP method
-    switch (method) {
-      case "GET":
-        print("API GET request: $urlPath");
-        try {
-          res = await http.get(urlPath, headers: headers);
-        } on http.ClientException catch(e) {
-          if (e.message == "Failed to parse header value") {
-            // [ERROR:flutter/lib/ui/ui_dart_state.cc(198)] Unhandled Exception: Failed to parse header value
-            // See: https://github.com/dart-lang/sdk/issues/46442
-            // Flutter does not handle properly Bearer auth failure and will return a crap error
-            if (!headers.containsKey("Authorization")) {
-              throw e;
-            }
-            // Token might be expired, mark as expired and retry with a new token
-            expiresV = 0; 
-            headers["Authorization"] = "Bearer " + await token();
-            res = await http.get(urlPath, headers: headers);
-          }
-          throw e; // Rethrow other exceptions
-        }
-        break;
-      case "POST":
-        // Encode body as JSON for POST requests
-        if (body != null) {
-          headers["Content-Type"] = "application/json";
-          body = json.encode(body);
-        }
-
-        try {
-          res = await http.post(urlPath, body: body, headers: headers);
-        } on http.ClientException catch(e) {
-          if (e.message == "Failed to parse header value") {
-            // Same token error handling as in GET
-            if (!headers.containsKey("Authorization")) {
-              throw e;
-            }
-            expiresV = 0; 
-            headers["Authorization"] = "Bearer " + await token();
-            res = await http.post(urlPath, body: body, headers: headers);
-          }
-          throw e;
-        }
-        break;
-      default:
-        // For other HTTP methods (PUT, DELETE, etc.)
-        var req = http.Request(method, urlPath);
-        headers.forEach((String k, String v) {
-          req.headers[k] = v;
-        });
-        if (body != null) {
-          req.body = json.encode(body);
-          req.headers["Content-Type"] = "application/json";
-        }
-
-        try {
-          var stream = await http.Client().send(req);
-          res = await http.Response.fromStream(stream);
-        } on http.ClientException catch(e) {
-          if (e.message == "Failed to parse header value") {
-            // Same token error handling
-            if (!req.headers.containsKey("Authorization")) {
-              throw e;
-            }
-            expiresV = 0;
-            req.headers["Authorization"] = "Bearer " + await token();
-            var stream = await http.Client().send(req);
-            res = await http.Response.fromStream(stream);
-          }
-          throw e;
-        }
+    // Execute request with retry logic for token issues
+    http.Response res;
+    try {
+      res = await _executeRequest(method, urlPath, headers, body);
+    } catch (e) {
+      if (kDebugMode) {
+        print("Request error: $e");
+      }
+      rethrow;
     }
 
     // Update cookies from response
@@ -286,51 +210,197 @@ class AtOnline with ChangeNotifier {
 
     // Handle error responses
     if (res.statusCode >= 300) {
-      // Check if error response is in JSON format
-      String ct = res.headers["content-type"]!;
-      int idx = ct.indexOf(';');
-      if (idx > 0) {
-        ct = ct.substring(0, idx);
-      }
-      if (ct == "application/json") {
-        // Platform error with JSON payload
-        var d = json.decode(res.body);
-        print("Got error: ${res.body}");
-        
-        // Handle special token errors
-        if (d.containsKey("token")) {
-          switch (d["token"]) {
-            case "error_invalid_oauth_refresh_token":
-              // Invalid refresh token, clear tokens and throw login exception
-              print("got invalid token error, voiding token");
-              await voidToken();
-              throw new AtOnlineLoginException(d.error);
-          }
-        }
-        throw new AtOnlinePlatformException(d);
-      }
-      // Non-JSON error response
-      print("Error from API: ${res.body}");
-      throw new AtOnlineNetworkException(
-          "invalid response from api ${res.statusCode} ${res.body}");
+      return await _handleErrorResponse(res);
     }
 
     // Parse successful response
-    var d = json.decode(res.body);
+    dynamic responseData;
+    try {
+      responseData = json.decode(res.body);
+    } catch (e) {
+      throw AtOnlineNetworkException("Failed to parse response as JSON: $e");
+    }
 
     // Return raw JSON if skipDecode is true
     if (skipDecode) {
-      return d;
+      return responseData;
     }
 
     // Check for API-level error
-    if (d["result"] != "success") {
-      print("Got error: $d");
-      throw AtOnlinePlatformException(d);
+    if (responseData["result"] != "success") {
+      if (kDebugMode) {
+        print("Got API error: $responseData");
+      }
+      throw AtOnlinePlatformException(responseData);
     }
 
     // Return structured API result
-    return AtOnlineApiResult(d);
+    return AtOnlineApiResult(responseData);
+  }
+  
+  /// Prepares context parameters for a request
+  /// 
+  /// @param context Custom context parameters
+  /// @param method HTTP method
+  /// @param body Request body
+  /// @return Map of context parameters
+  Future<Map<String, String?>> _prepareRequestContext(
+      Map<String, String>? context, String method, dynamic body) async {
+    var ctx = <String, String?>{};
+    
+    // Add locale and timezone to context
+    ctx["_ctx[l]"] = Intl.defaultLocale;
+    ctx["_ctx[t]"] = DateTime.now().timeZoneName;
+    
+    // Add custom context parameters
+    if (context != null) {
+      context.forEach((k, v) => ctx["_ctx[$k]"] = v);
+    }
+    
+    // For GET requests, body is passed as a special query parameter
+    if (method == "GET" && body != null) {
+      ctx["_"] = json.encode(body);
+    }
+    
+    return ctx;
+  }
+  
+  /// Builds the request URL with query parameters
+  /// 
+  /// @param path API endpoint path
+  /// @param queryParams Query parameters to include
+  /// @return Fully constructed URI
+  Uri _buildRequestUrl(String path, Map<String, String?> queryParams) {
+    Uri urlPath = Uri.parse(prefix + path);
+    return Uri(
+      scheme: urlPath.scheme,
+      host: urlPath.host,
+      path: urlPath.path,
+      queryParameters: queryParams
+    );
+  }
+  
+  /// Executes an HTTP request with automatic token refresh on failure
+  /// 
+  /// @param method HTTP method
+  /// @param url Request URL
+  /// @param headers HTTP headers
+  /// @param body Request body
+  /// @return HTTP response
+  Future<http.Response> _executeRequest(
+      String method, Uri url, Map<String, String> headers, dynamic body) async {
+    // First attempt
+    try {
+      return await _performRequest(method, url, headers, body);
+    } on http.ClientException catch(e) {
+      // Handle token errors
+      if (e.message == "Failed to parse header value" && headers.containsKey("Authorization")) {
+        // Token might be expired, mark as expired and retry with a new token
+        expiresV = 0;
+        headers["Authorization"] = "Bearer ${await token()}";
+        return await _performRequest(method, url, headers, body);
+      }
+      rethrow;
+    }
+  }
+  
+  /// Performs the actual HTTP request
+  /// 
+  /// @param method HTTP method
+  /// @param url Request URL
+  /// @param headers HTTP headers
+  /// @param body Request body
+  /// @return HTTP response
+  Future<http.Response> _performRequest(
+      String method, Uri url, Map<String, String> headers, dynamic body) async {
+    switch (method) {
+      case "GET":
+        return await http.get(url, headers: headers);
+        
+      case "POST":
+        // Encode body as JSON for POST requests
+        Map<String, String> postHeaders = Map.from(headers);
+        String? encodedBody;
+        
+        if (body != null) {
+          postHeaders["Content-Type"] = "application/json";
+          encodedBody = json.encode(body);
+        }
+        
+        return await http.post(url, headers: postHeaders, body: encodedBody);
+        
+      default:
+        // For other HTTP methods (PUT, DELETE, etc.)
+        var request = http.Request(method, url);
+        
+        // Add headers
+        headers.forEach((String k, String v) {
+          request.headers[k] = v;
+        });
+        
+        // Add body if present
+        if (body != null) {
+          request.body = json.encode(body);
+          request.headers["Content-Type"] = "application/json";
+        }
+        
+        // Send request
+        var streamedResponse = await http.Client().send(request);
+        return await http.Response.fromStream(streamedResponse);
+    }
+  }
+  
+  /// Handles error responses from the API
+  /// 
+  /// @param response HTTP response with error status
+  /// @return Never returns - always throws an appropriate exception
+  Future<dynamic> _handleErrorResponse(http.Response response) async {
+    // Check if response has a content type
+    if (!response.headers.containsKey("content-type")) {
+      throw AtOnlineNetworkException(
+          "Invalid response from API: ${response.statusCode} (no content type)");
+    }
+    
+    // Extract content type
+    String contentType = response.headers["content-type"]!;
+    int separatorIndex = contentType.indexOf(';');
+    if (separatorIndex > 0) {
+      contentType = contentType.substring(0, separatorIndex);
+    }
+    
+    // Handle JSON errors
+    if (contentType == "application/json" && response.body.isNotEmpty) {
+      try {
+        final data = json.decode(response.body);
+        
+        // Handle token errors
+        if (data is Map && data.containsKey("token")) {
+          switch (data["token"]) {
+            case "error_invalid_oauth_refresh_token":
+            case "error_invalid_refresh_token":
+              if (kDebugMode) {
+                print("Invalid token error, voiding token");
+              }
+              await voidToken();
+              throw AtOnlineLoginException(data["error"] ?? "Invalid refresh token");
+          }
+        }
+        
+        throw AtOnlinePlatformException(data);
+      } catch (e) {
+        if (e is AtOnlineLoginException || e is AtOnlinePlatformException) {
+          rethrow;
+        }
+      }
+    }
+    
+    // Handle non-JSON errors
+    if (kDebugMode) {
+      print("API Error: ${response.statusCode} - ${response.body}");
+    }
+    
+    throw AtOnlineNetworkException(
+        "Invalid response from API: ${response.statusCode} ${response.reasonPhrase}");
   }
 
   /// Makes an authenticated request to the AtOnline API
@@ -461,60 +531,151 @@ class AtOnline with ChangeNotifier {
   Future<String> token() async {
     int now = (DateTime.now().millisecondsSinceEpoch / 1000).round();
 
-    // Return cached token if it's valid
-    if ((expiresV > now) && (tokenV != null)) {
+    // Return cached token if it's valid with at least 60s margin
+    if ((expiresV > now + 60) && (tokenV != null && tokenV!.isNotEmpty)) {
       return tokenV!;
     }
     
-    // Try to load token from secure storage if we haven't already
+    // Try to load token from secure storage if we haven't already completed that step
     if (!storageLoadCompleted) {
-      var e = await storage.read(key: "expires");
-      print("loading token, expire = $e");
-      if (e != null) {
-        int exp = int.parse(e);
-        if (exp > now) {
-          // Token from storage is still valid
-          tokenV = await storage.read(key: "access_token");
-          if (tokenV != null) {
-            expiresV = exp;
-            storageLoadCompleted = true;
-            return tokenV!;
-          }
+      try {
+        await _loadTokenFromStorage(now);
+        
+        // If we have a valid token now, return it
+        if ((expiresV > now + 60) && (tokenV != null && tokenV!.isNotEmpty)) {
+          return tokenV!;
         }
+      } catch (e) {
+        if (kDebugMode) {
+          print("Error loading token from storage: $e");
+        }
+        // Continue to token refresh
       }
     }
 
     // Need to refresh token using refresh_token
-    String? ref = await storage.read(key: "refresh_token");
-    if ((ref == null) || (ref == "")) {
+    return await _refreshToken();
+  }
+  
+  /// Loads authentication tokens from secure storage
+  /// 
+  /// @param now Current timestamp in seconds
+  /// @return true if valid token was loaded, false otherwise
+  Future<bool> _loadTokenFromStorage(int now) async {
+    try {
+      final expireStr = await storage.read(key: "expires");
+      
+      if (kDebugMode) {
+        print("Loading token, expire = $expireStr");
+      }
+      
+      if (expireStr != null) {
+        final expireTime = int.parse(expireStr);
+        
+        // Check if token is still valid
+        if (expireTime > now) {
+          final accessToken = await storage.read(key: "access_token");
+          
+          if (accessToken != null && accessToken.isNotEmpty) {
+            tokenV = accessToken;
+            expiresV = expireTime;
+            storageLoadCompleted = true;
+            return true;
+          }
+        }
+      }
+      
+      // Mark storage as checked even if we didn't find a valid token
+      storageLoadCompleted = true;
+      return false;
+    } catch (e) {
+      // Mark storage as checked to avoid repeated failing attempts
+      storageLoadCompleted = true;
+      if (kDebugMode) {
+        print("Error reading token from storage: $e");
+      }
+      return false;
+    }
+  }
+  
+  /// Refreshes the access token using the refresh token
+  /// 
+  /// @return New access token
+  /// @throws AtOnlineLoginException if refresh fails or no refresh token is available
+  Future<String> _refreshToken() async {
+    // Get refresh token
+    final refreshToken = await storage.read(key: "refresh_token");
+    
+    if (refreshToken == null || refreshToken.isEmpty) {
       // No refresh token available, user needs to log in again
-      if (tokenV != "") {
+      if (tokenV != null && tokenV!.isNotEmpty) {
         tokenV = "";
         expiresV = 0;
         notifyListeners(); // Notify about logout state
       }
-      throw new AtOnlineLoginException("no token available");
+      throw AtOnlineLoginException("No refresh token available");
     }
 
-    print("token expired, refreshing");
+    if (kDebugMode) {
+      print("Token expired, refreshing");
+    }
 
-    // Perform token refresh using OAuth2 flow
-    var req = <String, dynamic>{
-      "grant_type": "refresh_token",
-      "client_id": appId,
-      "refresh_token": ref,
-    };
-    var res = await this
-        .req("OAuth2:token", method: "POST", body: req, skipDecode: true);
+    try {
+      // Perform token refresh using OAuth2 flow
+      final requestBody = <String, dynamic>{
+        "grant_type": "refresh_token",
+        "client_id": appId,
+        "refresh_token": refreshToken,
+      };
+      
+      // Note: We use a more direct request method here to avoid recursion
+      final requestPath = '${prefix}OAuth2:token';
+      final url = Uri.parse(requestPath);
+      final headers = <String, String>{
+        "Content-Type": "application/json",
+        "Sec-ClientId": appId,
+      };
+      
+      // Add cookies if available
+      if (cookies.isNotEmpty) {
+        headers['cookie'] = _generateCookieHeader();
+      }
+      
+      // Make the refresh token request
+      final response = await http.post(
+        url,
+        headers: headers,
+        body: json.encode(requestBody),
+      );
+      
+      if (response.statusCode >= 300) {
+        throw AtOnlineLoginException("Token refresh failed: ${response.statusCode}");
+      }
+      
+      final responseData = json.decode(response.body);
+      
+      if (kDebugMode) {
+        print("Got new token, storing");
+      }
 
-    print("got new token, storing");
+      // Store the new token
+      await storeToken(responseData);
 
-    // Store the new token
-    await storeToken(res);
+      if (kDebugMode) {
+        print("Token stored");
+      }
 
-    print("token stored");
-
-    return res["access_token"].toString();
+      return responseData["access_token"].toString();
+    } catch (e) {
+      // Clear token state on error
+      await voidToken();
+      
+      if (e is AtOnlineLoginException) {
+        rethrow;
+      }
+      
+      throw AtOnlineLoginException("Failed to refresh token: $e");
+    }
   }
 
   /// Stores authentication tokens in secure storage
@@ -568,18 +729,39 @@ class AtOnline with ChangeNotifier {
   /// 
   /// Extracts Set-Cookie headers and stores them for future requests
   void _updateCookie(http.Response response) {
-    String? allSetCookie = response.headers['set-cookie'];
+    final allSetCookie = response.headers['set-cookie'];
 
-    if (allSetCookie != null) {
-      // Split multiple cookies if present (separated by commas)
-      var setCookies = allSetCookie.split(',');
-
-      for (var setCookie in setCookies) {
-        // Each cookie can have multiple parts separated by semicolons
-        var cookies = setCookie.split(';');
-
-        for (var cookie in cookies) {
-          _setCookie(cookie);
+    if (allSetCookie != null && allSetCookie.isNotEmpty) {
+      // RFC 6265 requires multiple cookies to be sent in separate Set-Cookie headers,
+      // but sometimes they're combined with commas. We handle both cases.
+      
+      // First, try to split by comma, but be careful about commas within values
+      // This is a simplified approach; for a full proper parser, use a specialized cookie library
+      List<String> parsedCookies = [];
+      
+      // Simple comma splitting - works for most cases
+      final rawCookies = allSetCookie.split(',');
+      
+      // Process each raw cookie
+      for (var rawCookie in rawCookies) {
+        // Check if this is a new cookie or part of the previous one (comma in value)
+        if (parsedCookies.isNotEmpty && !rawCookie.contains('=')) {
+          // This is likely part of the previous cookie's value containing a comma
+          parsedCookies[parsedCookies.length - 1] += ',$rawCookie';
+        } else {
+          parsedCookies.add(rawCookie);
+        }
+      }
+      
+      // Process each cookie
+      for (var cookieStr in parsedCookies) {
+        // Each cookie string can have multiple parts separated by semicolons
+        // The first part is the name-value pair, rest are attributes
+        final cookieParts = cookieStr.split(';');
+        
+        if (cookieParts.isNotEmpty) {
+          // Process the name-value part
+          _setCookie(cookieParts[0].trim());
         }
       }
     }
@@ -587,21 +769,35 @@ class AtOnline with ChangeNotifier {
 
   /// Parses and stores a single cookie from a Set-Cookie header
   /// 
-  /// @param rawCookie The raw cookie string to parse
+  /// @param rawCookie The raw cookie name-value part
   void _setCookie(String rawCookie) {
-    if (rawCookie.length > 0) {
-      // Split cookie into key and value
-      var keyValue = rawCookie.split('=');
-      if (keyValue.length == 2) {
-        var key = keyValue[0].trim();
-        var value = keyValue[1];
-
-        // Skip cookie attributes like path and expires
-        if (key == 'path' || key == 'expires')
-          return;
-
-        // Store the cookie
-        this.cookies[key] = value;
+    if (rawCookie.isEmpty) {
+      return;
+    }
+    
+    // Split cookie into key and value at the first equals sign
+    final equalsIndex = rawCookie.indexOf('=');
+    
+    if (equalsIndex > 0) {
+      final key = rawCookie.substring(0, equalsIndex).trim();
+      final value = rawCookie.substring(equalsIndex + 1);
+      
+      // Skip cookie attributes like path and expires
+      if (key.toLowerCase() == 'path' || 
+          key.toLowerCase() == 'expires' ||
+          key.toLowerCase() == 'domain' ||
+          key.toLowerCase() == 'max-age' ||
+          key.toLowerCase() == 'secure' ||
+          key.toLowerCase() == 'httponly' ||
+          key.toLowerCase() == 'samesite') {
+        return;
+      }
+      
+      // Store the cookie
+      cookies[key] = value;
+      
+      if (kDebugMode) {
+        print("Cookie set: $key (value hidden for security)");
       }
     }
   }
@@ -610,15 +806,13 @@ class AtOnline with ChangeNotifier {
   /// 
   /// @return Formatted cookie string for use in HTTP requests
   String _generateCookieHeader() {
-    String cookie = "";
-
-    // Join all cookies with semicolons
-    for (var key in cookies.keys) {
-      if (cookie.length > 0)
-        cookie += ";";
-      cookie += key + "=" + cookies[key]!;
+    if (cookies.isEmpty) {
+      return "";
     }
-
-    return cookie;
+    
+    // Join all cookies with semicolons
+    return cookies.entries
+        .map((entry) => "${entry.key}=${entry.value}")
+        .join('; ');
   }
 }

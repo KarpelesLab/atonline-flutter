@@ -59,45 +59,85 @@ class User extends ChangeNotifier {
   /// @return true if successfully logged in, false otherwise
   Future<bool> fetchLogin() async {
     try {
-      var res = await api
-          .authReq("User:get", body: {"image_variation": imageVariation});
+      final res = await api.authReq("User:get", body: {"image_variation": imageVariation});
       
       // Parse user information from response
-      var u = new UserInfo();
-      u.object = res.data;
-      u.email = res["Email"];
+      final userInfo = UserInfo();
+      userInfo.object = res.data;
       
-      try {
-        u.displayName = res["Profile"]["Display_Name"];
-      } catch (e) {}
+      // Safely extract email
+      if (res.data is Map && res.data.containsKey('Email')) {
+        userInfo.email = res.data['Email']?.toString();
+      }
       
+      // Safely extract display name
+      if (res.data is Map && 
+          res.data.containsKey('Profile') &&
+          res.data['Profile'] is Map && 
+          res.data['Profile'].containsKey('Display_Name')) {
+        userInfo.displayName = res.data['Profile']['Display_Name']?.toString();
+      }
+      
+      // Safely extract profile picture
       try {
-        u.profilePicture = res["Profile"]["Drive_Item"]["Media_Image"]
-            ["Variation"]["strip&format=jpeg&scale_crop=160x160"];
-      } catch (e) {}
+        // Nested path for profile picture, using null-aware operators
+        userInfo.profilePicture = res.data?['Profile']?['Drive_Item']?['Media_Image']
+            ?['Variation']?['strip&format=jpeg&scale_crop=160x160']?.toString();
+      } catch (e) {
+        // Keep profile picture as null if not found or error occurs
+        if (kDebugMode) {
+          print('Error getting profile picture: $e');
+        }
+      }
       
       // Update state and notify listeners
-      info = u;
+      info = userInfo;
       loading = false;
       notifyListeners();
       return true;
-    } on AtOnlineLoginException {
+    } on AtOnlineLoginException catch (e) {
       // Not logged in (no login info)
-      info = null;
-      loading = false;
-      notifyListeners();
+      if (kDebugMode) {
+        print('Login error: ${e.msg}');
+      }
+      _resetUserState();
       return false;
-    } on AtOnlinePlatformException {
+    } on AtOnlinePlatformException catch (e) {
       // Error from platform (access denied, etc)
-      info = null;
-      loading = false;
-      notifyListeners();
+      if (kDebugMode) {
+        print('Platform error during login: ${e.data}');
+      }
+      _resetUserState();
       return false;
     } catch (e) {
       // Other error
-      info = null;
-      loading = false;
-      notifyListeners();
+      if (kDebugMode) {
+        print('Unexpected error during login: $e');
+      }
+      _resetUserState();
+      return false;
+    }
+  }
+  
+  /// Helper method to reset user state on errors or logout
+  void _resetUserState() {
+    info = null;
+    loading = false;
+    notifyListeners();
+  }
+  
+  /// Checks if a token exists without making a network request
+  /// Useful for UI to determine if login should be shown
+  /// 
+  /// @return true if a refresh token exists in storage
+  Future<bool> hasStoredCredentials() async {
+    try {
+      final refreshToken = await api.storage.read(key: "refresh_token");
+      return refreshToken != null && refreshToken.isNotEmpty;
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error checking stored credentials: $e');
+      }
       return false;
     }
   }
@@ -105,22 +145,47 @@ class User extends ChangeNotifier {
   /// Log the user out
   /// 
   /// Clears tokens and user information
-  Future<Null> logout() async {
-    await api.voidToken();
-    info = null;
+  Future<void> logout() async {
+    try {
+      await api.voidToken();
+      _resetUserState();
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error during logout: $e');
+      }
+      // Still reset user state even if token voiding fails
+      _resetUserState();
+    }
   }
 
   /// Update user profile picture
   /// 
   /// @param img The image file to upload
   /// @param fetch Whether to refresh user info after updating
-  Future<Null> setProfilePicture(File img, {bool fetch = true}) async {
-    await api.authReqUpload("User/@/Profile:addImage", img,
-        body: {"purpose": "main"});
-    
-    // Refresh user info if requested
-    if (fetch) {
-      await fetchLogin();
+  /// @return true if the update succeeded, false otherwise
+  Future<bool> setProfilePicture(File img, {bool fetch = true}) async {
+    try {
+      if (!img.existsSync()) {
+        throw AtOnlinePlatformException({'error': 'Image file does not exist'});
+      }
+      
+      await api.authReqUpload(
+        "User/@/Profile:addImage", 
+        img,
+        body: {"purpose": "main"}
+      );
+      
+      // Refresh user info if requested
+      if (fetch) {
+        return await fetchLogin();
+      }
+      
+      return true;
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error updating profile picture: $e');
+      }
+      return false;
     }
   }
 
@@ -128,13 +193,43 @@ class User extends ChangeNotifier {
   /// 
   /// @param profile Map of profile fields to update
   /// @param fetch Whether to refresh user info after updating
-  Future<Null> updateProfile(Map<String, String> profile,
-      {bool fetch = true}) async {
-    await api.authReq("User/@/Profile", method: "PATCH", body: profile);
+  /// @return true if the update succeeded, false otherwise
+  Future<bool> updateProfile(Map<String, String> profile, {bool fetch = true}) async {
+    try {
+      await api.authReq(
+        "User/@/Profile", 
+        method: "PATCH", 
+        body: profile
+      );
+      
+      // Refresh user info if requested
+      if (fetch) {
+        return await fetchLogin();
+      }
+      
+      return true;
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error updating profile: $e');
+      }
+      return false;
+    }
+  }
+  
+  /// Get the user profile data
+  /// 
+  /// This is a convenience method to access the profile data directly
+  /// 
+  /// @return Map of profile data or null if not logged in
+  Map<String, dynamic>? getProfileData() {
+    if (info?.object == null) {
+      return null;
+    }
     
-    // Refresh user info if requested
-    if (fetch) {
-      await fetchLogin();
+    try {
+      return info!.object?['Profile'] as Map<String, dynamic>;
+    } catch (e) {
+      return null;
     }
   }
 }

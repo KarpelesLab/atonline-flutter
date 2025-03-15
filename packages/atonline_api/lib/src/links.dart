@@ -2,16 +2,23 @@ import 'package:app_links/app_links.dart';
 import 'package:flutter/foundation.dart';
 
 /// Callback function for handling URI links
-typedef void LinkListener(Uri link);
+typedef LinkListener = void Function(Uri link);
 
 /// Manages deep links and URL scheme handling
 /// 
 /// Provides path-based routing for deep links and app URL schemes
 class Links {
   /// Singleton instance
-  static Links _instance = new Links._internal();
+  static final Links _instance = Links._internal();
+  
   /// Map of path prefixes to their registered listeners
-  Map<String, ObserverList<LinkListener>> _listeners = {};
+  final Map<String, ObserverList<LinkListener>> _listeners = {};
+  
+  /// AppLinks instance for handling deep links
+  late final AppLinks _appLinks;
+  
+  /// Whether the links system has been initialized
+  bool _isInitialized = false;
 
   /// Factory constructor that returns the singleton instance
   factory Links() {
@@ -19,14 +26,18 @@ class Links {
   }
 
   /// Private constructor for singleton pattern
-  Links._internal();
+  Links._internal() {
+    _appLinks = AppLinks();
+  }
 
   /// Initialize the links system
   /// 
   /// This method must be called after adding listeners for your app
   /// Sets up the app_links package to listen for incoming links
-  static Future<void> init() async {
-    await _instance._init();
+  /// 
+  /// @return Future that completes when initialization is done
+  static Future<bool> init() async {
+    return await _instance._init();
   }
 
   /// Register a listener for a specific URL path prefix
@@ -38,6 +49,10 @@ class Links {
       _listeners[prefix] = ObserverList<LinkListener>();
     }
     _listeners[prefix]!.add(listener);
+    
+    if (kDebugMode) {
+      print("Added listener for prefix: $prefix");
+    }
   }
 
   /// Remove a previously registered listener
@@ -49,6 +64,7 @@ class Links {
       return;
     }
     _listeners[prefix]!.remove(listener);
+    
     // Clean up empty listener lists
     if (_listeners[prefix]!.isEmpty) {
       _listeners.remove(prefix);
@@ -61,20 +77,23 @@ class Links {
   /// by shortening the path until a matching prefix is found
   /// 
   /// @param link The URI link that was received
-  void _fireNotification(Uri link) {
+  /// @return true if any listeners were notified, false otherwise
+  bool _fireNotification(Uri link) {
     var prefix = link.path;
+    bool notified = false;
 
     // Try to find matching listeners by shortening the path
     while (!_listeners.containsKey(prefix)) {
-      if (prefix.length < 8) return;
+      if (prefix.length < 2) return false;
 
       // Remove trailing slashes
-      while (prefix[prefix.length - 1] == '/')
+      while (prefix.isNotEmpty && prefix[prefix.length - 1] == '/') {
         prefix = prefix.substring(0, prefix.length - 1);
+      }
 
       // Find last path segment
       var pos = prefix.lastIndexOf('/');
-      if (pos == -1) return;
+      if (pos == -1) return false;
 
       // Shorten path to parent directory
       prefix = prefix.substring(0, pos);
@@ -88,6 +107,7 @@ class Links {
     for (LinkListener listener in localListeners) {
       try {
         listener(link);
+        notified = true;
       } catch (exception, stack) {
         // Report errors in listeners
         FlutterError.reportError(FlutterErrorDetails(
@@ -98,20 +118,68 @@ class Links {
         ));
       }
     }
+    
+    return notified;
   }
 
   /// Process an incoming link by notifying appropriate listeners
   /// 
   /// @param link The URI link to process
-  void processLink(Uri link) {
-    _fireNotification(link);
+  /// @return true if any listeners were notified, false otherwise
+  bool processLink(Uri link) {
+    if (kDebugMode) {
+      print("Processing link: $link");
+    }
+    return _fireNotification(link);
+  }
+  
+  /// Manually handle a URI
+  /// 
+  /// This is useful for testing or handling URIs from other sources
+  /// 
+  /// @param uri The URI to handle
+  /// @return true if any listeners were called, false otherwise
+  bool handleUri(Uri uri) {
+    return processLink(uri);
   }
 
-  /// Internal initialization method
+  /// Initialize the links system
   /// 
-  /// Sets up app_links to listen for incoming URI links
-  Future<Null> _init() async {
-    final appLinks = AppLinks();
-    appLinks.uriLinkStream.listen(processLink);
+  /// @return true if initialization was successful, false otherwise
+  Future<bool> _init() async {
+    if (_isInitialized) {
+      return true;
+    }
+    
+    try {
+      // Get initial link that launched the app (if any)
+      final initialLink = await _appLinks.getInitialAppLink();
+      if (initialLink != null) {
+        if (kDebugMode) {
+          print("Processing initial link: $initialLink");
+        }
+        processLink(initialLink);
+      }
+      
+      // Listen for links while the app is running
+      _appLinks.uriLinkStream.listen((uri) {
+        processLink(uri);
+      });
+      
+      _isInitialized = true;
+      return true;
+    } catch (e) {
+      if (kDebugMode) {
+        print("Error initializing Links: $e");
+      }
+      return false;
+    }
+  }
+  
+  /// Get all registered prefixes
+  /// 
+  /// @return List of registered prefix strings
+  List<String> getRegisteredPrefixes() {
+    return _listeners.keys.toList();
   }
 }
