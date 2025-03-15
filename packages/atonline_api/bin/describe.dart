@@ -41,7 +41,12 @@ void main(List<String> args) async {
         headers['Sec-ClientId'] = appId;
       }
       
-      final response = await http.options(url, headers: headers);
+      // The http package doesn't have a direct options method, so create a custom request
+      final request = http.Request('OPTIONS', url);
+      request.headers.addAll(headers);
+      
+      final streamedResponse = await http.Client().send(request);
+      final response = await http.Response.fromStream(streamedResponse);
       
       if (response.statusCode >= 300) {
         print('Error: Server returned status code ${response.statusCode}');
@@ -52,7 +57,14 @@ void main(List<String> args) async {
       }
       
       // Parse and display the response
-      final data = json.decode(response.body);
+      final dynamic data;
+      try {
+        data = json.decode(response.body);
+      } catch (e) {
+        print('Error: Failed to parse response as JSON');
+        print('Response body: ${response.body}');
+        exit(3);
+      }
       
       print('API Endpoint: $endpoint');
       
