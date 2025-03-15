@@ -1,4 +1,4 @@
-## [0.4.19] March 16th 2025
+## [0.4.19+1] March 16th 2025
 
 * Refactored core classes for better error handling and performance:
   * Improved token refresh logic with better error handling
@@ -7,6 +7,8 @@
   * Improved cookie handling for better compatibility
   * Enhanced Links class with better URI handling and debugging
   * Added convenience methods to User class for profile management
+  * Clarified query parameter handling in API requests
+  * Added comprehensive test suite for core functionality
 
 ## [0.4.18] March 16th 2025
 

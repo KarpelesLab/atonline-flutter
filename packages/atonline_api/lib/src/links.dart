@@ -153,7 +153,7 @@ class Links {
     
     try {
       // Get initial link that launched the app (if any)
-      final initialLink = await _appLinks.getInitialAppLink();
+      final initialLink = await _appLinks.getInitialLink();
       if (initialLink != null) {
         if (kDebugMode) {
           print("Processing initial link: $initialLink");

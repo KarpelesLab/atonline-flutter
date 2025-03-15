@@ -1,6 +1,6 @@
 name: atonline_api
 description: AtOnline API tools for Flutter, for use with AtOnline.com APIs including CMS, Naka, etc.
-version: 0.4.19
+version: 0.4.19+1
 homepage: https://github.com/AtOnline/atonline-flutter
 
 environment:
@@ -25,6 +25,8 @@ dependencies:
 dev_dependencies:
   flutter_test:
     sdk: flutter
+  mockito: ^5.4.4
+  build_runner: ^2.4.8
 
 # For information on the generic Dart part of this file, see the
 # following page: https://www.dartlang.org/tools/pub/pubspec

@@ -238,31 +238,33 @@ class AtOnline with ChangeNotifier {
     return AtOnlineApiResult(responseData);
   }
   
-  /// Prepares context parameters for a request
+  /// Prepares query parameters for a request
+  /// 
+  /// This method builds the query string parameters that will be included in the URL
   /// 
   /// @param context Custom context parameters
   /// @param method HTTP method
-  /// @param body Request body
-  /// @return Map of context parameters
+  /// @param body Request body (for GET requests, body is sent as query parameter)
+  /// @return Map of query parameters
   Future<Map<String, String?>> _prepareRequestContext(
       Map<String, String>? context, String method, dynamic body) async {
-    var ctx = <String, String?>{};
+    var queryParams = <String, String?>{};
     
     // Add locale and timezone to context
-    ctx["_ctx[l]"] = Intl.defaultLocale;
-    ctx["_ctx[t]"] = DateTime.now().timeZoneName;
+    queryParams["_ctx[l]"] = Intl.defaultLocale;
+    queryParams["_ctx[t]"] = DateTime.now().timeZoneName;
     
     // Add custom context parameters
     if (context != null) {
-      context.forEach((k, v) => ctx["_ctx[$k]"] = v);
+      context.forEach((k, v) => queryParams["_ctx[$k]"] = v);
     }
     
     // For GET requests, body is passed as a special query parameter
     if (method == "GET" && body != null) {
-      ctx["_"] = json.encode(body);
+      queryParams["_"] = json.encode(body);
     }
     
-    return ctx;
+    return queryParams;
   }
   
   /// Builds the request URL with query parameters
