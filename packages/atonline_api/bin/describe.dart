@@ -286,7 +286,7 @@ Future<Map<String, dynamic>> _exploreEndpoint(String endpoint, String baseUrl, S
               print('\n${key.replaceAll('_', ' ')}: ${value.join('/')}');
               
               // Add children as subEndpoints if available
-              if (key == 'children' && value is List) {
+              if (key == 'children') {
                 for (final child in value) {
                   if (child is Map) {
                     String name = child['name'] ?? child['Key'] ?? '';

@@ -1,4 +1,3 @@
-import 'dart:convert';
 import 'package:flutter/foundation.dart';
 
 import 'api.dart';
@@ -81,8 +80,8 @@ class ApiExplorer {
   Future<ApiInfo> getEndpointInfo(String path, {bool authenticated = false}) async {
     try {
       final result = authenticated 
-          ? await api.authReq(path, method: 'OPTIONS', skipDecode: true)
-          : await api.req(path, method: 'OPTIONS', skipDecode: true);
+          ? await api.authReq(path, method: 'OPTIONS')
+          : await api.req(path, method: 'OPTIONS');
       
       final methods = <String>[];
       if (result.containsKey('methods')) {
