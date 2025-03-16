@@ -8,7 +8,11 @@
   * Enhanced Links class with better URI handling and debugging
   * Added convenience methods to User class for profile management
   * Clarified query parameter handling in API requests
-  * Added comprehensive test suite for core functionality
+  * Added comprehensive test suite for core functionality:
+    * Tests for different response types (strings, objects, arrays)
+    * Tests for error handling with various error conditions
+    * Tests for query parameter and context parameter handling
+    * Tests for cookie management
 
 ## [0.4.18] March 16th 2025
 
