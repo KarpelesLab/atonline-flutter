@@ -420,7 +420,7 @@ void main() {
       }
     });
     
-    test('API can handle error responses', () async {
+    test('API can handle error responses from non-existent endpoints', () async {
       // This test checks that API errors are properly transformed to exceptions
       final api = AtOnline('test_client_id');
       
@@ -439,6 +439,53 @@ void main() {
           expect(e.data['error'], isNotNull);
         }
       }
+    });
+    
+    test('API can handle error responses from error endpoints', () async {
+      // This test checks how the API handles endpoints that explicitly return errors
+      final api = AtOnline('test_client_id');
+      
+      try {
+        // Call the error endpoint which intentionally returns an error
+        await api.req('Misc/Debug:error');
+        fail('Request to error endpoint should have failed');
+      } catch (e) {
+        // The error endpoint should return a platform exception
+        expect(e, isA<AtOnlinePlatformException>());
+        
+        // Verify specific error details
+        if (e is AtOnlinePlatformException) {
+          expect(e.data['result'], 'error');
+          expect(e.data['error'], 'Test error');
+          expect(e.data['token'], 'unknown_error');
+        }
+      }
+    });
+    
+    test('API can handle fixed string responses', () async {
+      // This test verifies that the API can handle string responses correctly
+      final api = AtOnline('test_client_id');
+      
+      final result = await api.req('Misc/Debug:fixedString');
+      
+      // The fixedString endpoint returns a string rather than an object in the data field
+      expect(result.result, 'success');
+      expect(result.data, 'fixed string');
+      
+      // Verify that we can't iterate over a string
+      expect(() => result.iterator, throwsException);
+    });
+    
+    test('API can handle fixed array responses', () async {
+      // This test verifies that the API can handle array/object responses correctly
+      final api = AtOnline('test_client_id');
+      
+      final result = await api.req('Misc/Debug:fixedArray');
+      
+      // The fixedArray endpoint returns a object with a key-value pair
+      expect(result.result, 'success');
+      expect(result.data, isA<Map>());
+      expect(result.data['key'], 'fixed array value');
     });
   });
 }
