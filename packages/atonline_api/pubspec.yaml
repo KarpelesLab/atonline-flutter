@@ -1,6 +1,6 @@
 name: atonline_api
 description: AtOnline API tools for Flutter, for use with AtOnline.com APIs including CMS, Naka, etc.
-version: 0.4.19+1
+version: 0.4.19+2
 homepage: https://github.com/AtOnline/atonline-flutter
 
 environment:

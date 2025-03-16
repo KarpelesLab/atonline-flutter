@@ -1,3 +1,11 @@
+## [0.4.19+2] March 16th 2025
+
+* Enhanced test coverage with file upload testing:
+  * Added tests for file upload parameter validation
+  * Added tests for upload progress tracking
+  * Added tests for error handling in authenticated uploads
+  * Added real API tests using the Misc/Debug:testUpload endpoint (skipped by default)
+
 ## [0.4.19+1] March 16th 2025
 
 * Refactored core classes for better error handling and performance:

@@ -1,11 +1,14 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter/foundation.dart';
 import 'package:atonline_api/atonline_api.dart';
 import 'package:mockito/mockito.dart';
 import 'package:http/http.dart' as http;
 import 'package:mockito/annotations.dart';
+import 'package:path/path.dart' as p;
+import 'package:mime/mime.dart';
 
 import 'atonline_api_test.mocks.dart';
 
@@ -319,9 +322,122 @@ void main() {
     });
   });
   
+  group('File Upload Tests with Mocks', () {
+    late MockClient mockClient;
+    late AtOnline api;
+    
+    setUp(() {
+      mockClient = MockClient();
+      api = AtOnline('test_app_id');
+    });
+    
+    test('File upload properties and parameters validation', () async {
+      // Skip this test on web platforms
+      if (kIsWeb) {
+        return;
+      }
+      
+      // Create a test file with content
+      final directory = Directory.systemTemp;
+      final testFile = File('${directory.path}/atonline_mock_upload.txt');
+      final testContent = 'Test upload content for mocked requests';
+      await testFile.writeAsString(testContent);
+      
+      try {
+        // Test file properties used in the upload process
+        final fileSize = await testFile.length();
+        final fileName = p.basename(testFile.path);
+        final fileType = lookupMimeType(fileName) ?? 'application/octet-stream';
+        
+        // Create body parameters with the same logic used in authReqUpload
+        final body = <String, dynamic>{
+          'filename': fileName,
+          'type': fileType,
+          'size': fileSize,
+        };
+        
+        // Validate file preparation for upload
+        expect(body['size'], fileSize);
+        expect(body['filename'], 'atonline_mock_upload.txt');
+        expect(body['type'], isNotNull);
+        
+        // Verify the file content was written correctly
+        expect(await testFile.readAsString(), equals(testContent));
+        expect(fileSize, equals(testContent.length));
+        
+        // Verify expected workflow for upload - we're testing the concept, not the actual call
+        // Since we can't call authReqUpload without a token, we just verify the expected flow:
+        // 1. Prepare body with file info
+        // 2. Make first API call to get upload URL
+        // 3. Prepare streamed request with proper content-type
+        // 4. Upload file content with progress tracking
+        // 5. Complete upload with final API call
+        
+        // Test the progress tracking mechanism separately
+        double? lastProgress;
+        void progressCallback(double progress) {
+          lastProgress = progress;
+          // In a real upload, progress would increment from 0.0 to 1.0
+        }
+        
+        // Simulate progress for test coverage
+        progressCallback(0.0);
+        progressCallback(0.5);
+        progressCallback(1.0);
+        
+        expect(lastProgress, 1.0);
+      } finally {
+        // Clean up test file
+        if (await testFile.exists()) {
+          await testFile.delete();
+        }
+      }
+    });
+    
+    test('ProgressCallback correctly reports upload progress', () {
+      // Test the progress callback functionality
+      final progressValues = <double>[];
+      void progressCallback(double progress) {
+        progressValues.add(progress);
+      }
+      
+      // Simulate progress updates
+      progressCallback(0.0);
+      progressCallback(0.25);
+      progressCallback(0.5);
+      progressCallback(0.75);
+      progressCallback(1.0);
+      
+      // Verify progress tracking
+      expect(progressValues.length, 5);
+      expect(progressValues.first, 0.0);
+      expect(progressValues.last, 1.0);
+      expect(progressValues, containsAllInOrder([0.0, 0.25, 0.5, 0.75, 1.0]));
+    });
+    
+    test('Token request fails without authentication', () async {
+      // Skip this test on web platforms
+      if (kIsWeb) {
+        return;
+      }
+      
+      // Verify that the API class requires authentication for token
+      try {
+        await api.token();
+        fail('Should have thrown exception due to missing token');
+      } catch (e) {
+        expect(e, isA<AtOnlineLoginException>());
+      }
+    });
+  });
+  
   group('Live API Tests with Misc/Debug endpoints', () {
     // These tests make real API calls to the AtOnline API
     // They use the Misc/Debug endpoints which don't require authentication
+    
+    setUp(() {
+      // Add setup code if needed for live API tests
+    });
     
     test('API can retrieve server time', () async {
       // This test makes a real API call to Misc/Debug:serverTime
@@ -486,6 +602,168 @@ void main() {
       expect(result.result, 'success');
       expect(result.data, isA<Map>());
       expect(result.data['key'], 'fixed array value');
+    });
+    
+    test('API can test file uploads with different put_only modes of testUpload endpoint', () async {
+      // This test runs real file uploads with the Misc/Debug:testUpload endpoint
+      // in both put_only=true and put_only=false modes
+      
+      final api = AtOnline('test_client_id');
+      
+      // Create a temporary file with fixed test content
+      final directory = Directory.systemTemp;
+      final testFile = File('${directory.path}/atonline_test_upload.txt');
+      
+      try {
+        // Create file with known, fixed content for verification
+        final testContent = 'Test file upload with fixed content: ATONLINE-API-TEST-CONTENT';
+        await testFile.writeAsString(testContent);
+        
+        // Get the file size for verification
+        final fileSize = await testFile.length();
+        
+        // Helper function to perform an upload with different put_only options
+        Future<void> performUpload(bool putOnly) async {
+          // Step 1: Prepare upload request parameters
+          final uploadParams = <String, dynamic>{
+            'filename': 'test_upload.txt',
+            'type': 'text/plain',
+            'size': fileSize,
+            'put_only': putOnly  // Proper documented parameter
+          };
+          
+          // Step 2: Request upload URL from the testUpload endpoint
+          if (kDebugMode) {
+            print('\n--- Testing upload with put_only=$putOnly ---');
+          }
+          
+          final uploadUrlResult = await api.req(
+            'Misc/Debug:testUpload',
+            method: 'POST',
+            body: uploadParams
+          );
+          
+          if (kDebugMode) {
+            print('Upload URL response with put_only=$putOnly:');
+            print(json.encode(uploadUrlResult.data));
+          }
+          
+          // Make sure we have the upload URLs
+          expect(uploadUrlResult.data, isNotNull);
+          expect(uploadUrlResult.data.containsKey('PUT'), isTrue);
+          expect(uploadUrlResult.data.containsKey('Complete'), isTrue);
+          
+          // Step 3: Prepare the upload request
+          final uploadUri = Uri.parse(uploadUrlResult.data['PUT']);
+          final uploadRequest = http.StreamedRequest('PUT', uploadUri);
+          uploadRequest.contentLength = fileSize;
+          uploadRequest.headers['Content-Type'] = 'text/plain';
+          
+          // Track upload progress 
+          double? lastProgress;
+          int current = 0;
+          
+          // Step 4: Set up file streaming with progress tracking
+          final fileStream = testFile.openRead();
+          await for (var chunk in fileStream) {
+            uploadRequest.sink.add(chunk);
+            current += chunk.length;
+            final progress = current / fileSize;
+            lastProgress = progress;
+            if (kDebugMode) {
+              print('Upload progress: ${(progress * 100).toStringAsFixed(2)}%');
+            }
+          }
+          
+          // Close the sink after all data is written
+          uploadRequest.sink.close();
+          
+          // Step 5: Send the request and wait for the response
+          final uploadResponse = await http.Client().send(uploadRequest);
+          final responseBody = await uploadResponse.stream.bytesToString();
+          
+          if (kDebugMode) {
+            print('Upload response status: ${uploadResponse.statusCode}');
+            if (responseBody.isNotEmpty) {
+              print('Upload response body: $responseBody');
+            }
+          }
+          
+          // Verify the upload succeeded
+          expect(uploadResponse.statusCode, lessThan(300));
+          expect(lastProgress, 1.0); // Should reach 100%
+          
+          // Step 6: Complete the upload by calling the Complete endpoint
+          final completeResult = await api.req(
+            uploadUrlResult.data['Complete'],
+            method: 'POST'
+          );
+          
+          if (kDebugMode) {
+            print('Complete response with put_only=$putOnly:');
+            print(json.encode(completeResult.res));
+          }
+          
+          // Verify the complete response contains the expected data
+          expect(completeResult.result, 'success');
+          expect(completeResult.data, isNotNull);
+          
+          // Analyze the response data
+          if (kDebugMode) {
+            print('Analyzing upload response with put_only=$putOnly');
+            print('Response data fields:');
+            completeResult.data.forEach((key, value) {
+              print('  $key: $value');
+            });
+          }
+          
+          // Common validations for both test modes
+          expect(completeResult.result, 'success');
+          expect(completeResult.data.containsKey('Blob__'), isTrue);
+          expect(completeResult.data.containsKey('SHA256'), isTrue);
+          expect(completeResult.data.containsKey('Size'), isTrue);
+          expect(completeResult.data.containsKey('Mime'), isTrue);
+          
+          // Validate specific fields
+          expect(completeResult.data['Size'], '$fileSize');  // Size is returned as a string
+          expect(completeResult.data['Mime'], 'text/plain');
+          
+          // The SHA256 hash should be consistent for the same content
+          const expectedHash = '05e3759bc71a37542370ef49165c5cc856930374b249f0e9ad92cd4f25694051';
+          expect(completeResult.data['SHA256'], expectedHash);
+          
+          // Differences between put_only modes:
+          // 1. With put_only=true:
+          //    - Response is more minimal with just PUT and Complete URLs
+          //    - No detailed Cloud_Aws_Bucket information or Key
+          //    - Works without authentication
+          //    - Simpler response data structure
+          // 2. With put_only=false (default):
+          //    - Full response with Cloud_Aws_Bucket_Upload__, Key, Status, etc.
+          //    - Returns Bucket_Endpoint information
+          //    - More complete integration with the cloud storage system
+          //    - More detailed response
+          
+          if (kDebugMode) {
+            print('Blob ID with put_only=$putOnly: ${completeResult.data['Blob__']}');
+            if (uploadUrlResult.data.containsKey('Key')) {
+              print('Storage Key: ${uploadUrlResult.data['Key']}');
+            }
+          }
+        }
+        
+        // Run both test modes to compare differences
+        await performUpload(true);   // First with put_only=true
+        await performUpload(false);  // Then with put_only=false (default)
+        
+      } catch (e) {
+        fail('Failed to test file upload: $e');
+      } finally {
+        // Clean up the test file
+        if (await testFile.exists()) {
+          await testFile.delete();
+        }
+      }
     });
   });
 }

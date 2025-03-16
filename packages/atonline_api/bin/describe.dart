@@ -283,9 +283,67 @@ Future<Map<String, dynamic>> _exploreEndpoint(String endpoint, String baseUrl, S
           }
         });
         
+        // Show procedure information if available
+        if (apiData.containsKey('procedure') && apiData['procedure'] is Map) {
+          final procedure = apiData['procedure'];
+          
+          print('\nProcedure: ${procedure['name'] ?? 'Unknown'}');
+          
+          if (procedure.containsKey('static')) {
+            print('Static: ${procedure['static']}');
+          }
+          
+          if (procedure.containsKey('args') && procedure['args'] is List) {
+            final args = procedure['args'] as List;
+            
+            if (args.isNotEmpty) {
+              print('\nArguments:');
+              
+              for (final arg in args) {
+                if (arg is Map) {
+                  String name = arg['name'] ?? 'unknown';
+                  String type = arg['type'] ?? 'any';
+                  bool required = arg['required'] == true;
+                  
+                  String requiredStr = required ? 'required' : 'optional';
+                  print('  $name: $type ($requiredStr)');
+                  
+                  // Show default value if available
+                  if (arg.containsKey('default')) {
+                    print('    Default: ${arg['default']}');
+                  }
+                  
+                  // Show description if available
+                  if (arg.containsKey('description')) {
+                    print('    Description: ${arg['description']}');
+                  }
+                }
+              }
+            }
+          }
+        }
+        
+        // Collect procedure args for code generation
+        List<Map<String, dynamic>> procedureArgs = [];
+        if (apiData.containsKey('procedure') && apiData['procedure'] is Map) {
+          final procedure = apiData['procedure'];
+          if (procedure.containsKey('args') && procedure['args'] is List) {
+            for (final arg in procedure['args']) {
+              if (arg is Map) {
+                procedureArgs.add({
+                  'name': arg['name'] ?? 'unknown',
+                  'type': arg['type'] ?? 'any',
+                  'required': arg['required'] == true,
+                  'default': arg['default'],
+                });
+              }
+            }
+          }
+        }
+        
         // Generate and print code if requested
         if (generateCode && methods.isNotEmpty) {
-          final code = _generateEndpointCode(endpoint, methods, appId);
+          final code = _generateEndpointCode(endpoint, methods, appId, procedureArgs);
           print('\nGenerated Code:');
           print('---------------');
           print(code);
@@ -296,6 +354,7 @@ Future<Map<String, dynamic>> _exploreEndpoint(String endpoint, String baseUrl, S
           'data': apiData,
           'methods': methods,
           'subEndpoints': subEndpoints,
+          'procedureArgs': procedureArgs,
         };
       }
     } else {
@@ -371,7 +430,7 @@ Future<Map<String, dynamic>> _exploreEndpoint(String endpoint, String baseUrl, S
       if (generateCode && methods.isNotEmpty) {
         print('\nGenerated Code:');
         print('---------------');
-        print(_generateEndpointCode(endpoint, methods, appId));
+        print(_generateEndpointCode(endpoint, methods, appId, []));
       }
       
       // Return data with any found sub-endpoints
@@ -453,7 +512,8 @@ void _printStructure(Map<String, dynamic> struct, String indent) {
 }
 
 /// Generate sample code for the endpoint
-String _generateEndpointCode(String path, List<String> methods, String? appId) {
+String _generateEndpointCode(String path, List<String> methods, String? appId, 
+    [List<Map<String, dynamic>>? procedureArgs]) {
   final buffer = StringBuffer();
   final methodName = _endpointToMethodName(path);
   
@@ -463,9 +523,51 @@ String _generateEndpointCode(String path, List<String> methods, String? appId) {
   // Generate code for GET method
   if (methods.contains('GET')) {
     buffer.writeln('/// Fetch data from $path');
-    buffer.writeln('Future<dynamic> get$methodName() async {');
+    
+    // Generate function signature with procedure args if available
+    if (procedureArgs != null && procedureArgs.isNotEmpty) {
+      buffer.write('Future<dynamic> get$methodName({');
+      
+      // Add procedure arguments as named parameters
+      for (var i = 0; i < procedureArgs.length; i++) {
+        final arg = procedureArgs[i];
+        final name = arg['name'];
+        final type = _dartTypeFromApiType(arg['type']);
+        final required = arg['required'] == true;
+        
+        if (required) {
+          buffer.write('required $type $name');
+        } else {
+          buffer.write('$type? $name');
+        }
+        
+        if (i < procedureArgs.length - 1) {
+          buffer.write(', ');
+        }
+      }
+      
+      buffer.writeln('}) async {');
+    } else {
+      buffer.writeln('Future<dynamic> get$methodName() async {');
+    }
+    
     buffer.writeln('  final api = AtOnline(${appId != null ? "'$appId'" : 'YOUR_APP_ID'});');
-    buffer.writeln('  return await api.req(\'$path\');');
+    
+    // If we have procedure args, use them in the request
+    if (procedureArgs != null && procedureArgs.isNotEmpty) {
+      buffer.writeln('  final body = <String, dynamic>{};');
+      
+      // Add each arg to the body if provided
+      for (final arg in procedureArgs) {
+        final name = arg['name'];
+        buffer.writeln('  if ($name != null) body[\'$name\'] = $name;');
+      }
+      
+      buffer.writeln('  return await api.req(\'$path\', body: body);');
+    } else {
+      buffer.writeln('  return await api.req(\'$path\');');
+    }
+    
     buffer.writeln('}');
     buffer.writeln('');
   }
@@ -473,9 +575,55 @@ String _generateEndpointCode(String path, List<String> methods, String? appId) {
   // Generate code for POST method
   if (methods.contains('POST')) {
     buffer.writeln('/// Create/submit data to $path');
-    buffer.writeln('Future<dynamic> create$methodName(Map<String, dynamic> data) async {');
-    buffer.writeln('  final api = AtOnline(${appId != null ? "'$appId'" : 'YOUR_APP_ID'});');
-    buffer.writeln('  return await api.req(\'$path\', method: \'POST\', body: data);');
+    
+    // Generate function signature with procedure args if available
+    if (procedureArgs != null && procedureArgs.isNotEmpty) {
+      buffer.write('Future<dynamic> create$methodName({');
+      
+      // Add procedure arguments as named parameters
+      for (var i = 0; i < procedureArgs.length; i++) {
+        final arg = procedureArgs[i];
+        final name = arg['name'];
+        final type = _dartTypeFromApiType(arg['type']);
+        final required = arg['required'] == true;
+        
+        if (required) {
+          buffer.write('required $type $name');
+        } else {
+          buffer.write('$type? $name');
+        }
+        
+        if (i < procedureArgs.length - 1) {
+          buffer.write(', ');
+        }
+      }
+      
+      // Additional map parameter for other data
+      if (procedureArgs.isNotEmpty) {
+        buffer.write(', Map<String, dynamic>? additionalData');
+      }
+      
+      buffer.writeln('}) async {');
+      
+      buffer.writeln('  final api = AtOnline(${appId != null ? "'$appId'" : 'YOUR_APP_ID'});');
+      buffer.writeln('  final body = <String, dynamic>{};');
+      
+      // Add each arg to the body if provided
+      for (final arg in procedureArgs) {
+        final name = arg['name'];
+        buffer.writeln('  if ($name != null) body[\'$name\'] = $name;');
+      }
+      
+      // Add additional data if provided
+      buffer.writeln('  if (additionalData != null) body.addAll(additionalData);');
+      
+      buffer.writeln('  return await api.req(\'$path\', method: \'POST\', body: body);');
+    } else {
+      buffer.writeln('Future<dynamic> create$methodName(Map<String, dynamic> data) async {');
+      buffer.writeln('  final api = AtOnline(${appId != null ? "'$appId'" : 'YOUR_APP_ID'});');
+      buffer.writeln('  return await api.req(\'$path\', method: \'POST\', body: data);');
+    }
+    
     buffer.writeln('}');
     buffer.writeln('');
   }
@@ -491,6 +639,34 @@ String _generateEndpointCode(String path, List<String> methods, String? appId) {
   }
   
   return buffer.toString();
+}
+
+/// Convert API type to Dart type
+String _dartTypeFromApiType(dynamic apiType) {
+  if (apiType == null) return 'dynamic';
+  
+  switch (apiType.toString().toLowerCase()) {
+    case 'bool':
+      return 'bool';
+    case 'int':
+    case 'integer':
+      return 'int';
+    case 'double':
+    case 'float':
+    case 'number':
+      return 'double';
+    case 'string':
+    case 'str':
+      return 'String';
+    case 'array':
+    case 'list':
+      return 'List<dynamic>';
+    case 'object':
+    case 'map':
+      return 'Map<String, dynamic>';
+    default:
+      return 'dynamic';
+  }
 }
 
 /// Convert an API endpoint path to a valid method name
