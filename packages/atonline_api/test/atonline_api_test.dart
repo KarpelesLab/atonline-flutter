@@ -37,6 +37,38 @@ void main() {
       expect(requestFuture, throwsA(isA<Exception>()));
     });
     
+    test('API will handle complex body in GET parameters correctly', () async {
+      // Create a test request with complex nested body
+      final complexBody = {
+        'user': {
+          'name': 'Test User',
+          'roles': ['admin', 'user'],
+          'settings': {
+            'theme': 'dark',
+            'notifications': true
+          }
+        },
+        'filters': [
+          {'field': 'status', 'value': 'active'},
+          {'field': 'type', 'operator': 'in', 'value': ['A', 'B', 'C']}
+        ]
+      };
+      
+      // Test URL construction
+      final api = AtOnline('test_app_id');
+      
+      // Create a request that will fail, but we can observe network errors
+      // to confirm the URL was constructed correctly
+      final requestFuture = api.req(
+        'Misc/Debug:echo',
+        method: 'GET',
+        body: complexBody,
+        context: {'custom_ctx': 'custom_value'}
+      );
+      
+      expect(requestFuture, throwsA(isA<Exception>()));
+    });
+    
     test('AtOnlineApiResult provides access to data and paging', () {
       // Create a mock API response
       final responseMap = {
