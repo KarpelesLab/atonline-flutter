@@ -1,3 +1,16 @@
+## [0.6.0] - March 16th 2025
+
+* Major refactoring to improve testability and maintainability
+* Extracted services for better dependency injection:
+  * LoginService for API interactions
+  * WebAuthService for OAuth2 authentication
+* Updated existing components:
+  * ImagePickerWidget now supports dependency injection for testing
+  * AtOnlineLoginPageBody reorganized with better UI building methods
+* Added comprehensive unit tests
+* Update atonline_api dependency to 0.4.19+2
+* Fix deprecated color property access in HexColor extension
+
 ## [0.5.0] - September 5th 2024
 
 * Switch flutter_web_auth → flutter_web_auth_2
