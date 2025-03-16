@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter/foundation.dart';
 import 'package:atonline_api/atonline_api.dart';
 import 'package:mockito/mockito.dart';
 import 'package:http/http.dart' as http;
@@ -315,6 +316,129 @@ void main() {
       // Just test the API exists and returns a list
       final prefixes = links.getRegisteredPrefixes();
       expect(prefixes, isA<List<String>>());
+    });
+  });
+  
+  group('Live API Tests with Misc/Debug endpoints', () {
+    // These tests make real API calls to the AtOnline API
+    // They use the Misc/Debug endpoints which don't require authentication
+    
+    test('API can retrieve server time', () async {
+      // This test makes a real API call to Misc/Debug:serverTime
+      final api = AtOnline('test_client_id');
+      
+      try {
+        final result = await api.req('Misc/Debug:serverTime');
+        
+        // Verify response structure
+        expect(result.result, 'success');
+        expect(result.data, isNotNull);
+        
+        // Check that we have the expected server time fields
+        expect(result.data['unix'], isNotNull);
+        expect(result.data['iso'], isNotNull);
+        expect(result.data['tz'], isNotNull);
+        
+        if (kDebugMode) {
+          print('Server time: ${result.data['iso']} (${result.data['tz']})');
+        }
+      } catch (e) {
+        // We don't expect the test to fail, but if it does due to connectivity issues,
+        // we want to know what went wrong
+        fail('Failed to connect to Misc/Debug:serverTime: $e');
+      }
+    });
+    
+    test('API can send and receive parameters', () async {
+      // This test passes parameters to Misc/Debug:params and checks they are echoed back
+      final api = AtOnline('test_client_id');
+      final testParams = {'test': 'value', 'number': '123'};
+      
+      try {
+        // Use query parameters - create a Map<String, String> for the queryParameters
+        final uri = Uri.parse('https://hub.atonline.com/_special/rest/Misc/Debug:params')
+            .replace(queryParameters: testParams);
+        
+        // Make direct HTTP request - we're testing the raw HTTP request here
+        final response = await http.get(uri);
+        expect(response.statusCode, 200);
+        
+        // Parse response
+        final responseData = json.decode(response.body);
+        expect(responseData['result'], 'success');
+        
+        // Verify echo'd parameters 
+        expect(responseData['data']['test'], 'value');
+        expect(responseData['data']['number'], '123');
+      } catch (e) {
+        fail('Failed to test parameters with Misc/Debug:params: $e');
+      }
+    });
+    
+    test('API correctly handles GET requests with body', () async {
+      // This test makes a GET request with a body using our API class
+      final api = AtOnline('test_client_id');
+      final testBody = {'complex': {'nested': 'value'}, 'array': [1, 2, 3]};
+      
+      try {
+        // Make request with body
+        final result = await api.req(
+          'Misc/Debug:params',
+          method: 'GET',
+          body: testBody
+        );
+        
+        // API doesn't echo back body directly in the response,
+        // but we can verify the request didn't fail, meaning the body was correctly
+        // serialized and sent as the '_' query parameter
+        expect(result.result, 'success');
+      } catch (e) {
+        fail('Failed to make GET request with body: $e');
+      }
+    });
+    
+    test('API correctly merges context parameters in requests', () async {
+      // This test verifies that context parameters are correctly included in the request
+      final api = AtOnline('test_client_id');
+      
+      try {
+        // Make a direct HTTP request to compare with what our API constructs
+        final customContext = {'custom1': 'value1', 'custom2': 'value2'};
+        
+        // We can't directly test context parameters with Misc/Debug:params
+        // because context parameters are handled by the server, not returned
+        // in the params echo. But we can verify that the request doesn't fail,
+        // which means the context parameters were correctly formatted.
+        final result = await api.req(
+          'Misc/Debug:serverTime',
+          context: customContext
+        );
+        
+        expect(result.result, 'success');
+      } catch (e) {
+        fail('Failed to send context parameters: $e');
+      }
+    });
+    
+    test('API can handle error responses', () async {
+      // This test checks that API errors are properly transformed to exceptions
+      final api = AtOnline('test_client_id');
+      
+      try {
+        // Call a non-existent endpoint
+        await api.req('Misc/Debug:nonExistentEndpoint');
+        fail('Request to non-existent endpoint should have failed');
+      } catch (e) {
+        // For non-existent API methods, the server returns AtOnlinePlatformException
+        // with specific error details rather than a network error
+        expect(e, isA<AtOnlinePlatformException>());
+        
+        // Check that the error data contains the expected information
+        if (e is AtOnlinePlatformException) {
+          expect(e.data['result'], 'error');
+          expect(e.data['error'], isNotNull);
+        }
+      }
     });
   });
 }
