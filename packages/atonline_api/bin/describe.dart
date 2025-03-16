@@ -11,12 +11,15 @@ void main(List<String> args) async {
     ..addFlag('help', abbr: 'h', negatable: false, help: 'Show usage information')
     ..addFlag('code', abbr: 'c', negatable: false, help: 'Generate sample code')
     ..addFlag('verbose', abbr: 'v', negatable: false, help: 'Show detailed response information')
+    ..addFlag('raw', abbr: 'w', negatable: false, help: 'Output raw JSON response')
+    ..addFlag('get', abbr: 'g', negatable: false, help: 'Make a GET request to the endpoint')
     ..addFlag('recursive', abbr: 'r', negatable: false, help: 'Recursively explore sub-endpoints')
     ..addOption('depth', abbr: 'd', help: 'Maximum depth for recursive exploration', defaultsTo: '1')
     ..addOption('base-url', abbr: 'u', 
         help: 'Base URL for API requests',
         defaultsTo: 'https://hub.atonline.com/_special/rest/')
-    ..addOption('app-id', abbr: 'i', help: 'Optional AtOnline application ID');
+    ..addOption('app-id', abbr: 'i', help: 'Optional AtOnline application ID')
+    ..addOption('query', abbr: 'q', help: 'Query parameters as JSON string');
 
   try {
     final results = parser.parse(args);
@@ -29,16 +32,35 @@ void main(List<String> args) async {
     final endpoint = results.rest[0];
     final generateCode = results['code'];
     final verbose = results['verbose'];
+    final raw = results['raw'];
+    final getRequest = results['get'];
     final recursive = results['recursive'];
     final maxDepth = int.parse(results['depth']);
     final baseUrl = results['base-url'];
     final appId = results['app-id'] ?? Platform.environment['ATONLINE_APP_ID'];
+    final queryParamsJson = results['query'];
+    
+    Map<String, dynamic>? queryParams;
+    if (queryParamsJson != null) {
+      try {
+        queryParams = json.decode(queryParamsJson);
+        if (queryParams is! Map<String, dynamic>) {
+          queryParams = null;
+          print('Warning: Query parameters must be a JSON object. Using empty params.');
+        }
+      } catch (e) {
+        print('Warning: Failed to parse JSON query parameters: $e. Using empty params.');
+      }
+    }
 
-    if (recursive) {
-      await _exploreRecursively(endpoint, baseUrl, appId, verbose, generateCode, 0, maxDepth);
+    if (getRequest) {
+      // Make a GET request to the endpoint
+      await _makeGetRequest(endpoint, baseUrl, appId, verbose, raw, queryParams);
+    } else if (recursive) {
+      await _exploreRecursively(endpoint, baseUrl, appId, verbose, raw, generateCode, 0, maxDepth);
     } else {
       // Regular single endpoint exploration
-      await _exploreEndpoint(endpoint, baseUrl, appId, verbose, generateCode);
+      await _exploreEndpoint(endpoint, baseUrl, appId, verbose, raw, generateCode);
     }
   } catch (e) {
     print('Error parsing arguments: $e');
@@ -49,7 +71,7 @@ void main(List<String> args) async {
 
 /// Explores a single API endpoint and prints information about it
 Future<Map<String, dynamic>> _exploreEndpoint(String endpoint, String baseUrl, String? appId, 
-    bool verbose, bool generateCode) async {
+    bool verbose, bool raw, bool generateCode) async {
   try {
     // Make request to the API
     print('Exploring API endpoint: $endpoint');
@@ -98,7 +120,7 @@ Future<Map<String, dynamic>> _exploreEndpoint(String endpoint, String baseUrl, S
       return <String, dynamic>{}; // Return empty map on error
     }
       
-    // Print raw response for debugging if verbose
+    // Print raw response for debugging if verbose or raw mode is enabled
     if (verbose) {
       print('Status code: ${response.statusCode}');
       print('Headers: ${response.headers}');
@@ -108,6 +130,25 @@ Future<Map<String, dynamic>> _exploreEndpoint(String endpoint, String baseUrl, S
       print(response.body.substring(0, response.body.length.clamp(0, 5000)));
       if (response.body.length > 5000) print('...(truncated)');
       print('---\n');
+    }
+    
+    // Output raw JSON in a more readable format if raw mode is enabled
+    if (raw) {
+      try {
+        if (response.body.isNotEmpty) {
+          final jsonData = json.decode(response.body);
+          final prettyJson = JsonEncoder.withIndent('  ').convert(jsonData);
+          print('Raw JSON Response:');
+          print(prettyJson);
+          print('');
+        }
+      } catch (e) {
+        print('Error formatting JSON: $e');
+        print(response.body);
+      }
+      
+      // In raw mode, we still want to continue with normal processing
+      // so the user can see both raw and parsed data
     }
     
     // Parse the response
@@ -349,7 +390,7 @@ Future<Map<String, dynamic>> _exploreEndpoint(String endpoint, String baseUrl, S
 
 /// Recursively explores API endpoints up to a maximum depth
 Future<void> _exploreRecursively(String endpoint, String baseUrl, String? appId, 
-    bool verbose, bool generateCode, int currentDepth, int maxDepth) async {
+    bool verbose, bool raw, bool generateCode, int currentDepth, int maxDepth) async {
   
   if (currentDepth > maxDepth) {
     return;
@@ -362,7 +403,7 @@ Future<void> _exploreRecursively(String endpoint, String baseUrl, String? appId,
   }
   
   // Explore current endpoint
-  final result = await _exploreEndpoint(endpoint, baseUrl, appId, verbose, generateCode);
+  final result = await _exploreEndpoint(endpoint, baseUrl, appId, verbose, raw, generateCode);
   
   // Stop if we've reached max depth or got no results
   if (currentDepth >= maxDepth || result.isEmpty || !result.containsKey('subEndpoints')) {
@@ -378,7 +419,7 @@ Future<void> _exploreRecursively(String endpoint, String baseUrl, String? appId,
     String subPath = endpoint.endsWith('/') || endpoint.isEmpty ? '$endpoint$name' : '$endpoint/$name';
     
     print('\n${'-' * 80}');
-    await _exploreRecursively(subPath, baseUrl, appId, verbose, generateCode, currentDepth + 1, maxDepth);
+    await _exploreRecursively(subPath, baseUrl, appId, verbose, raw, generateCode, currentDepth + 1, maxDepth);
   }
 }
 
@@ -477,6 +518,9 @@ void _printUsage(ArgParser parser) {
   print('Examples:');
   print('  atonline_describe User');
   print('  atonline_describe --code User:get');
+  print('  atonline_describe --raw Misc/Debug:echo');
+  print('  atonline_describe --get Misc/Debug:params');
+  print('  atonline_describe --get Misc/Debug:params --query=\'{"test":"value"}\' # Pass query parameters');
   print('  atonline_describe --verbose --base-url=https://ws.atonline.com/_special/rest/ User');
   print('  atonline_describe --recursive --depth=2 --base-url=https://ws.atonline.com/_special/rest/ User');
   print('  atonline_describe -r -d 1 / # List all top-level endpoints');
@@ -484,6 +528,97 @@ void _printUsage(ArgParser parser) {
 }
 
 /// Recursively print a map with proper indentation
+/// Makes a direct GET request to the API endpoint
+Future<void> _makeGetRequest(String endpoint, String baseUrl, String? appId, 
+    bool verbose, bool raw, Map<String, dynamic>? queryParams) async {
+  try {
+    // Set up URL and context parameters
+    print('Making GET request to API endpoint: $endpoint');
+    print('API Base URL: $baseUrl');
+    print('');
+    
+    // Handle the root endpoint specially to avoid double slashes
+    String fullUrl;
+    if (endpoint.isEmpty || endpoint == '/') {
+      fullUrl = baseUrl.endsWith('/') ? baseUrl : '$baseUrl/';
+    } else {
+      fullUrl = '$baseUrl${endpoint.startsWith('/') ? endpoint.substring(1) : endpoint}';
+    }
+    
+    // Prepare request
+    final headers = <String, String>{
+      'Content-Type': 'application/json'
+    };
+    
+    if (appId != null) {
+      headers['Sec-ClientId'] = appId;
+    }
+    
+    // Add context parameters and timezone/locale context
+    Map<String, String> contextParams = {};
+    contextParams['_ctx[l]'] = 'en_US'; // Default locale
+    contextParams['_ctx[t]'] = DateTime.now().timeZoneName;
+    
+    // For GET requests, we need to provide a default body as the "_" parameter
+    // This is a special AtOnline API behavior to handle GET with body
+    var emptyBody = <String, dynamic>{};
+    contextParams['_'] = json.encode(emptyBody);
+    
+    // Add any custom context parameters
+    if (queryParams != null) {
+      queryParams.forEach((key, value) {
+        contextParams['_ctx[$key]'] = value.toString();
+      });
+    }
+    
+    // Build the URL with the context parameters
+    final Uri url = Uri.parse(fullUrl).replace(queryParameters: contextParams);
+    print('GET Request URL: $url');
+    print('');
+    
+    // Make the request
+    final response = await http.get(url, headers: headers);
+    
+    // Handle response
+    if (response.statusCode >= 300) {
+      print('Error: Server returned status code ${response.statusCode}');
+      if (response.body.isNotEmpty) {
+        print(response.body);
+      }
+      return;
+    }
+    
+    // Print verbose info if requested
+    if (verbose) {
+      print('Status code: ${response.statusCode}');
+      print('Headers: ${response.headers}');
+      print('Body length: ${response.body.length}');
+      print('Response body:');
+      print('---');
+      print(response.body.substring(0, response.body.length.clamp(0, 5000)));
+      if (response.body.length > 5000) print('...(truncated)');
+      print('---\n');
+    }
+    
+    // Format and print JSON
+    try {
+      if (response.body.isNotEmpty) {
+        final jsonData = json.decode(response.body);
+        final prettyJson = JsonEncoder.withIndent('  ').convert(jsonData);
+        print('GET Response:');
+        print(prettyJson);
+      } else {
+        print('Empty response received.');
+      }
+    } catch (e) {
+      print('Error parsing response as JSON: $e');
+      print(response.body);
+    }
+  } catch (e) {
+    print('Error making GET request: $e');
+  }
+}
+
 void _printMap(dynamic map, String indent) {
   if (map is! Map) {
     print('$indent$map');
