@@ -12,7 +12,7 @@ void main(List<String> args) async {
     ..addFlag('code', abbr: 'c', negatable: false, help: 'Generate sample code')
     ..addFlag('verbose', abbr: 'v', negatable: false, help: 'Show detailed response information')
     ..addFlag('raw', abbr: 'w', negatable: false, help: 'Output raw JSON response')
-    ..addFlag('get', abbr: 'g', negatable: false, help: 'Make a GET request to the endpoint')
+    ..addFlag('get', abbr: 'g', negatable: false, help: 'Make a GET request to the endpoint (implies --raw)')
     ..addFlag('recursive', abbr: 'r', negatable: false, help: 'Recursively explore sub-endpoints')
     ..addOption('depth', abbr: 'd', help: 'Maximum depth for recursive exploration', defaultsTo: '1')
     ..addOption('base-url', abbr: 'u', 
@@ -32,7 +32,8 @@ void main(List<String> args) async {
     final endpoint = results.rest[0];
     final generateCode = results['code'];
     final verbose = results['verbose'];
-    final raw = results['raw'];
+    // If --get is specified, automatically enable raw output
+    final raw = results['raw'] || results['get'];
     final getRequest = results['get'];
     final recursive = results['recursive'];
     final maxDepth = int.parse(results['depth']);
@@ -519,7 +520,7 @@ void _printUsage(ArgParser parser) {
   print('  atonline_describe User');
   print('  atonline_describe --code User:get');
   print('  atonline_describe --raw Misc/Debug:echo');
-  print('  atonline_describe --get Misc/Debug:params');
+  print('  atonline_describe --get Misc/Debug:params # --get implies --raw');
   print('  atonline_describe --get Misc/Debug:params --query=\'{"test":"value"}\' # Pass query parameters');
   print('  atonline_describe --verbose --base-url=https://ws.atonline.com/_special/rest/ User');
   print('  atonline_describe --recursive --depth=2 --base-url=https://ws.atonline.com/_special/rest/ User');
