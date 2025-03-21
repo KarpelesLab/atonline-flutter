@@ -1,3 +1,16 @@
+## [0.6.1] - March 22nd 2025
+
+* Initial support for User Flow v2 API format:
+  * Enhanced OAuth2 button handling for the new format
+  * Added support for select/dropdown fields with static values
+  * Added support for dynamic select fields that fetch options from API
+  * Improved error message styling
+  * Updated form field processing with category-based handling
+  * Better session token management
+  * Support for field default values
+  * Enhanced redirect handling on flow completion
+* Added KLB systems integration documentation
+
 ## [0.6.0] - March 16th 2025
 
 * Major refactoring to improve testability and maintainability

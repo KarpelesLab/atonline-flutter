@@ -11,7 +11,7 @@ abstract class LoginService {
     Map<String, String>? formData,
   });
   
-  /// Process OAuth2 login
+  /// Process OAuth2 login - v2 format
   Future<Map<String, dynamic>> processOAuth2Login({
     required String oauth2Id,
     required String redirectUri,
@@ -24,6 +24,9 @@ abstract class LoginService {
   
   /// Upload files associated with the login
   Future<void> uploadFiles(Map<String, File> files, Map<String, dynamic> fileFields);
+  
+  /// Fetch data for dynamic select options
+  Future<dynamic> fetchDynamicOptions(String api);
   
   /// Check if user is logged in
   bool isUserLoggedIn();
@@ -73,7 +76,6 @@ class DefaultLoginService implements LoginService {
       session: session,
       formData: {
         "oauth2": oauth2Id,
-        "redirect_uri": redirectUri,
       },
     );
   }
@@ -104,6 +106,18 @@ class DefaultLoginService implements LoginService {
     
     await Future.wait(futures);
     await api.user.fetchLogin(); // Refresh user data
+  }
+  
+  @override
+  Future<dynamic> fetchDynamicOptions(String api) async {
+    try {
+      // Make an API request to fetch the options
+      final result = await this.api.optAuthReq(api);
+      return result;
+    } catch (e) {
+      print("Error fetching dynamic options: $e");
+      throw e;
+    }
   }
   
   @override

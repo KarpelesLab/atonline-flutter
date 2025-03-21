@@ -123,7 +123,9 @@ class AtOnlineLoginPageBodyState extends State<AtOnlineLoginPageBody> {
 
     // Refresh this new session
     session = queryParams["session"] ?? "";
-    _submitData(override: {}); // send empty form
+    
+    // In v2 flow, continue with just the session token
+    _submitData(override: {});
   }
 
   /// Submits login data to the API
@@ -143,6 +145,7 @@ class AtOnlineLoginPageBodyState extends State<AtOnlineLoginPageBody> {
     if (override != null) {
       formData = override;
     } else if (fields.isNotEmpty) {
+      // Gather all the required fields from the form
       fields.forEach((field, controller) {
         formData[field] = controller.text;
       });
@@ -157,15 +160,18 @@ class AtOnlineLoginPageBodyState extends State<AtOnlineLoginPageBody> {
       );
 
       if (res["complete"] == true) {
+        // Flow is complete, handle success
         await _handleLoginSuccess(res);
       } else if (res["url"] != null) {
-        // Special case → open given URL for OAuth2 login
+        // Special case for OAuth2 - redirect to external URL
         _doOauth2Login(res["url"]);
         return;
       } else {
+        // Continue the flow with the next step
         _updateLoginForm(res);
       }
-    } on AtOnlinePlatformException catch (_) {
+    } on AtOnlinePlatformException catch (e) {
+      print("Platform error: $e");
       _showError();
     } catch (e) {
       print("Login error: $e");
@@ -176,12 +182,34 @@ class AtOnlineLoginPageBodyState extends State<AtOnlineLoginPageBody> {
   /// Handles successful login response
   Future<void> _handleLoginSuccess(Map<String, dynamic> response) async {
     try {
-      final isLoggedIn = await _loginService.completeLogin(response["Token"]);
+      // In v2 flow, the token is capitalized as "Token"
+      final token = response["Token"];
+      if (token == null) {
+        print("No token in response");
+        _showError();
+        return;
+      }
+      
+      final isLoggedIn = await _loginService.completeLogin(token);
 
       if (isLoggedIn) {
         // Upload any files if needed
         if (_files.isNotEmpty) {
           await _loginService.uploadFiles(_files, _fileFields);
+        }
+        
+        // Handle redirect if provided in the response (v2 flow)
+        if (response["Redirect"] != null) {
+          final redirectUrl = response["Redirect"].toString();
+          
+          // Handle internal or external redirects
+          if (redirectUrl.startsWith("http://") || redirectUrl.startsWith("https://")) {
+            launchUrl(Uri.parse(redirectUrl));
+          } else {
+            // For internal app routes
+            print("Internal redirect requested to: $redirectUrl");
+            // Navigation would depend on the app's routing system
+          }
         }
       }
       
@@ -202,13 +230,38 @@ class AtOnlineLoginPageBodyState extends State<AtOnlineLoginPageBody> {
   void _updateLoginForm(Map<String, dynamic> res) {
     setState(() {
       info = res;
-      session = res["session"];
+      
+      // Get session from response
+      if (res["session"] != null) {
+        session = res["session"];
+      }
+      
+      // Reset field controllers
       fields = {};
       
       // Create controllers for required fields
-      if (res["req"] != null) {
+      if (res["req"] != null && res["req"] is List) {
         for (var field in res["req"]) {
           fields[field] = TextEditingController();
+        }
+      }
+      
+      // v2 format might include initial values for fields
+      if (res["fields"] != null && res["fields"] is List) {
+        for (var field in res["fields"]) {
+          final name = field["name"];
+          final defaultVal = field["default"];
+          
+          // If field is required but not yet added
+          if (name != null && fields[name] == null) {
+            // Add it with default value if available
+            fields[name] = TextEditingController(
+              text: defaultVal != null ? defaultVal.toString() : "",
+            );
+          } else if (name != null && defaultVal != null) {
+            // Or update existing with default value
+            fields[name]?.text = defaultVal.toString();
+          }
         }
       }
       
@@ -218,31 +271,57 @@ class AtOnlineLoginPageBodyState extends State<AtOnlineLoginPageBody> {
 
   /// Creates an OAuth2 button widget
   Widget _makeOAuth2Button(dynamic info) {
-    // info[info] contains: Token_Name, Name, Client_Id, Scope[]
-    Widget child = Text(info["info"]["Name"], textAlign: TextAlign.center);
-    Color color = Theme.of(context).primaryColor;
-
-    if (!(info["button"]?.isEmpty ?? true)) {
-      // We have a custom button style
-      if (info["button"]["logo"].startsWith("data:")) {
-        // Parse data URI
-        final data = UriData.parse(info["button"]["logo"]);
-        final svgData = data.contentAsString();
-        child = LayoutBuilder(
-          builder: (context, constraint) => SvgPicture.string(
-            svgData,
-            height: constraint.biggest.height * 0.6,
-          ),
+    // Format in v2: type: "oauth2", id: "provider_id", info: {}, button: {...}
+    Widget child;
+    Color backgroundColor = Theme.of(context).primaryColor;
+    Color? textColor;
+    
+    if (info["button"] != null) {
+      // Extract button styling from v2 format
+      String? text = info["button"]["text"];
+      String? icon = info["button"]["icon"];
+      
+      if (icon != null) {
+        // Handle SVG icon
+        if (icon.startsWith("data:")) {
+          // Parse data URI
+          final data = UriData.parse(icon);
+          final svgData = data.contentAsString();
+          child = LayoutBuilder(
+            builder: (context, constraint) => SvgPicture.string(
+              svgData,
+              height: constraint.biggest.height * 0.6,
+            ),
+          );
+        } else {
+          child = LayoutBuilder(
+            builder: (context, constraint) => SvgPicture.network(
+              icon,
+              height: constraint.biggest.height * 0.6,
+            ),
+          );
+        }
+      } else if (text != null) {
+        // Use text if no icon
+        textColor = info["button"]["textColor"] != null ? 
+          HexColor.fromHex(info["button"]["textColor"]) : Colors.white;
+        child = Text(
+          text, 
+          textAlign: TextAlign.center,
+          style: TextStyle(color: textColor),
         );
       } else {
-        child = LayoutBuilder(
-          builder: (context, constraint) => SvgPicture.network(
-            info["button"]["logo"],
-            height: constraint.biggest.height * 0.6,
-          ),
-        );
+        // Fallback to provider name
+        child = Text(info["id"] ?? "Login", textAlign: TextAlign.center);
       }
-      color = HexColor.fromHex(info["button"]["background-color"]);
+      
+      // Apply colors if provided
+      if (info["button"]["color"] != null) {
+        backgroundColor = HexColor.fromHex(info["button"]["color"]);
+      }
+    } else {
+      // Fallback for when button styling is not provided
+      child = Text(info["id"] ?? "Login", textAlign: TextAlign.center);
     }
 
     return GestureDetector(
@@ -253,7 +332,7 @@ class AtOnlineLoginPageBodyState extends State<AtOnlineLoginPageBody> {
         child: child,
         decoration: BoxDecoration(
           shape: BoxShape.circle,
-          color: color,
+          color: backgroundColor,
           boxShadow: const [
             BoxShadow(
               color: Colors.black26,
@@ -273,9 +352,9 @@ class AtOnlineLoginPageBodyState extends State<AtOnlineLoginPageBody> {
       return;
     }
     
+    // In v2 flow, this triggers the OAuth2 flow by sending the provider id and session
     _submitData(override: {
       "oauth2": info["id"],
-      "redirect_uri": widget.callbackUrlScheme! + ":/"
     });
   }
 
@@ -402,54 +481,65 @@ class AtOnlineLoginPageBodyState extends State<AtOnlineLoginPageBody> {
     List<Widget> oauth2Buttons = [];
     
     for (var field in fieldsData) {
-      switch (field["type"]) {
-        case "label":
-          _buildLabelField(widgets, field);
-          break;
-        case "email":
-          _buildTextField(
-            widgets, 
-            field, 
-            firstField, 
-            TextInputType.emailAddress
-          );
-          firstField = false;
-          break;
-        case "phone":
-          _buildTextField(
-            widgets, 
-            field, 
-            firstField, 
-            TextInputType.phone
-          );
-          firstField = false;
-          break;
-        case "password":
-          _buildPasswordField(widgets, field, firstField);
-          firstField = false;
-          break;
-        case "text":
-          _buildTextField(
-            widgets, 
-            field, 
-            firstField, 
-            TextInputType.text
-          );
-          firstField = false;
-          break;
-        case "checkbox":
-          _buildCheckboxField(widgets, field);
-          break;
-        case "oauth2":
-          oauth2Buttons.add(GridTile(
-            child: _makeOAuth2Button(field),
-          ));
-          break;
-        case "image":
-          _buildImageField(widgets, field);
-          break;
-        default:
-          print("Unhandled field type: ${field["type"]}");
+      // v2 flow categorizes fields with "cat" field
+      final String fieldType = field["type"] ?? "";
+      final String fieldCategory = field["cat"] ?? "";
+      
+      // Handle field based on category and type
+      if (fieldCategory == "label" || fieldType == "label") {
+        _buildLabelField(widgets, field);
+      } else if (fieldCategory == "input") {
+        // Handle input fields based on type
+        switch (fieldType) {
+          case "email":
+            _buildTextField(
+              widgets, 
+              field, 
+              firstField, 
+              TextInputType.emailAddress
+            );
+            firstField = false;
+            break;
+          case "phone":
+            _buildTextField(
+              widgets, 
+              field, 
+              firstField, 
+              TextInputType.phone
+            );
+            firstField = false;
+            break;
+          case "password":
+            _buildPasswordField(widgets, field, firstField);
+            firstField = false;
+            break;
+          case "text":
+            _buildTextField(
+              widgets, 
+              field, 
+              firstField, 
+              TextInputType.text
+            );
+            firstField = false;
+            break;
+          case "checkbox":
+            _buildCheckboxField(widgets, field);
+            break;
+          case "select":
+            _buildSelectField(widgets, field);
+            firstField = false;
+            break;
+          default:
+            print("Unhandled input field type: $fieldType");
+        }
+      } else if (fieldType == "oauth2") {
+        oauth2Buttons.add(GridTile(
+          child: _makeOAuth2Button(field),
+        ));
+      } else if (fieldCategory == "special" && fieldType == "image") {
+        _buildImageField(widgets, field);
+      } else {
+        print("Unhandled field type: $fieldType with category: $fieldCategory");
       }
     }
     
@@ -459,16 +549,207 @@ class AtOnlineLoginPageBodyState extends State<AtOnlineLoginPageBody> {
     }
   }
   
+  /// Builds a select/dropdown field - new in v2
+  void _buildSelectField(List<Widget> widgets, dynamic field) {
+    // Check if field name exists
+    if (field["name"] == null) {
+      print("Select field missing name");
+      return;
+    }
+
+    // Default value
+    String currentValue = "";
+    
+    // Initialize the field controller if needed
+    if (fields[field["name"]] != null) {
+      // If we have an existing value, use that
+      currentValue = fields[field["name"]]!.text;
+    } else if (field["default"] != null) {
+      // Initialize with default if available
+      currentValue = field["default"].toString();
+      fields[field["name"]] = TextEditingController(text: currentValue);
+    } else {
+      // Otherwise empty controller
+      fields[field["name"]] = TextEditingController();
+    }
+    
+    // Check if this is a dynamic select
+    if (field["source"] != null) {
+      _buildDynamicSelectField(widgets, field, currentValue);
+      return;
+    }
+    
+    // Build static dropdown items
+    List<DropdownMenuItem<String>> items = [];
+    if (field["values"] != null && field["values"] is List) {
+      for (var value in field["values"]) {
+        if (value["value"] != null && value["display"] != null) {
+          items.add(DropdownMenuItem<String>(
+            value: value["value"].toString(),
+            child: Text(value["display"].toString()),
+          ));
+        }
+      }
+    }
+    
+    // Create dropdown
+    widgets.add(
+      DropdownButtonFormField<String>(
+        key: Key(field["name"]),
+        value: currentValue.isNotEmpty ? currentValue : null,
+        decoration: InputDecoration(
+          labelText: field["label"] ?? "Select",
+        ),
+        items: items,
+        onChanged: (value) {
+          if (value != null) {
+            setState(() {
+              fields[field["name"]]?.text = value;
+            });
+          }
+        },
+      ),
+    );
+    widgets.add(const SizedBox(height: 15));
+  }
+  
+  /// Builds a dynamic select field that fetches options from an API
+  void _buildDynamicSelectField(List<Widget> widgets, dynamic field, String currentValue) {
+    final source = field["source"];
+    if (source == null || source["api"] == null) {
+      print("Dynamic select missing source or api field");
+      return;
+    }
+
+    final String api = source["api"];
+    final String labelField = source["label_field"] ?? "name";
+    final String keyField = source["key_field"] ?? "id";
+    
+    // Create a loading dropdown initially
+    widgets.add(
+      FutureBuilder<List<DropdownMenuItem<String>>>(
+        future: _fetchDynamicOptions(api, labelField, keyField),
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            // Show loading indicator while waiting for API response
+            return const Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                LinearProgressIndicator(),
+                SizedBox(height: 15),
+              ],
+            );
+          } else if (snapshot.hasError) {
+            // Show error message if API call fails
+            print("Error loading dynamic select options: ${snapshot.error}");
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text("Could not load options", style: TextStyle(color: Colors.red)),
+                const SizedBox(height: 15),
+              ],
+            );
+          } else if (snapshot.hasData && snapshot.data!.isNotEmpty) {
+            // Create the dropdown with fetched options
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                DropdownButtonFormField<String>(
+                  key: Key(field["name"]),
+                  value: currentValue.isNotEmpty ? currentValue : null,
+                  decoration: InputDecoration(
+                    labelText: field["label"] ?? "Select",
+                  ),
+                  items: snapshot.data,
+                  onChanged: (value) {
+                    if (value != null) {
+                      setState(() {
+                        fields[field["name"]]?.text = value;
+                      });
+                    }
+                  },
+                ),
+                const SizedBox(height: 15),
+              ],
+            );
+          } else {
+            // Show message if no options were returned
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text("No options available", style: TextStyle(fontStyle: FontStyle.italic)),
+                const SizedBox(height: 15),
+              ],
+            );
+          }
+        },
+      ),
+    );
+  }
+  
+  /// Fetches dynamic select options from the API
+  Future<List<DropdownMenuItem<String>>> _fetchDynamicOptions(
+    String api, 
+    String labelField, 
+    String keyField
+  ) async {
+    try {
+      final result = await _loginService.fetchDynamicOptions(api);
+      
+      // Process the results into dropdown items
+      List<DropdownMenuItem<String>> items = [];
+      
+      // If results is a list, process each item
+      if (result is List) {
+        for (var item in result) {
+          if (item[keyField] != null && item[labelField] != null) {
+            items.add(DropdownMenuItem<String>(
+              value: item[keyField].toString(),
+              child: Text(item[labelField].toString()),
+            ));
+          }
+        }
+      } 
+      // If results is a map (e.g. paginated results), look for items array
+      else if (result is Map && result["rows"] != null && result["rows"] is List) {
+        for (var item in result["rows"]) {
+          if (item[keyField] != null && item[labelField] != null) {
+            items.add(DropdownMenuItem<String>(
+              value: item[keyField].toString(),
+              child: Text(item[labelField].toString()),
+            ));
+          }
+        }
+      }
+      
+      return items;
+    } catch (e) {
+      print("Error fetching dynamic options: $e");
+      throw e;
+    }
+  }
+  
   /// Builds a label field
   void _buildLabelField(List<Widget> widgets, dynamic field) {
+    // Handle style for error messages
+    TextStyle style = const TextStyle();
+    if (field["style"] == "error") {
+      style = const TextStyle(color: Colors.red);
+    } else if (field["link"] != null) {
+      style = const TextStyle(decoration: TextDecoration.underline);
+    }
+    
     if (field["link"] == null) {
-      widgets.add(Text(field["label"].toString()));
+      widgets.add(Text(
+        field["label"].toString(),
+        style: style,
+      ));
     } else {
       widgets.add(GestureDetector(
         onTap: () => launchUrl(Uri.parse(field["link"])),
         child: Text(
           field["label"].toString(),
-          style: const TextStyle(decoration: TextDecoration.underline),
+          style: style,
         ),
       ));
     }

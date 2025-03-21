@@ -20,5 +20,11 @@
 - **Documentation**: Add comments for public APIs
 - **Testing**: Add unit tests for all new functionality
 
+## KLB Systems Integration
+When working with KLB systems, reference the integration-docs repository which contains authoritative documentation on API interactions, authentication flows, and development patterns. If the docs folder doesn't exist, clone it with:
+```
+git clone https://github.com/KarpelesLab/integration-docs.git docs
+```
+
 This package integrates with AtOnline APIs for authentication flows.
 Follow existing patterns in the codebase when adding new features.

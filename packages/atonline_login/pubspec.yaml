@@ -1,6 +1,6 @@
 name: atonline_login
 description: Client-side login page for applications using AtOnline apis and custom realms
-version: 0.6.0
+version: 0.6.1
 homepage: https://github.com/AtOnline/atonline-flutter
 
 environment:
