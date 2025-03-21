@@ -10,7 +10,7 @@ abstract class LoginService {
     required String session,
     Map<String, String>? formData,
   });
-  
+
   /// Process OAuth2 login - v2 format
   Future<Map<String, dynamic>> processOAuth2Login({
     required String oauth2Id,
@@ -18,16 +18,17 @@ abstract class LoginService {
     required String clientSessionId,
     required String session,
   });
-  
+
   /// Store token and fetch user details
   Future<bool> completeLogin(String token);
-  
+
   /// Upload files associated with the login
-  Future<void> uploadFiles(Map<String, File> files, Map<String, dynamic> fileFields);
-  
+  Future<void> uploadFiles(
+      Map<String, File> files, Map<String, dynamic> fileFields);
+
   /// Fetch data for dynamic select options
   Future<dynamic> fetchDynamicOptions(String api);
-  
+
   /// Check if user is logged in
   bool isUserLoggedIn();
 }
@@ -35,9 +36,9 @@ abstract class LoginService {
 /// Default implementation of LoginService using AtOnline API
 class DefaultLoginService implements LoginService {
   final AtOnline api;
-  
+
   DefaultLoginService(this.api);
-  
+
   @override
   Future<Map<String, dynamic>> submitLoginData({
     required String action,
@@ -53,16 +54,16 @@ class DefaultLoginService implements LoginService {
       "session": session,
       "client_sid": clientSessionId,
     };
-    
+
     // Add form data if available
     if (formData != null && formData.isNotEmpty) {
       body.addAll(formData);
     }
-    
+
     // Make API request
     return await api.optAuthReq("User:flow", method: "POST", body: body);
   }
-  
+
   @override
   Future<Map<String, dynamic>> processOAuth2Login({
     required String oauth2Id,
@@ -79,7 +80,7 @@ class DefaultLoginService implements LoginService {
       },
     );
   }
-  
+
   @override
   Future<bool> completeLogin(String token) async {
     try {
@@ -89,25 +90,26 @@ class DefaultLoginService implements LoginService {
       await api.voidToken();
       return false;
     }
-    
+
     await api.user.fetchLogin();
     return api.user.isLoggedIn();
   }
-  
+
   @override
-  Future<void> uploadFiles(Map<String, File> files, Map<String, dynamic> fileFields) async {
+  Future<void> uploadFiles(
+      Map<String, File> files, Map<String, dynamic> fileFields) async {
     if (files.isEmpty) return;
-    
+
     var futures = <Future>[];
     files.forEach((k, f) {
       var fi = fileFields[k];
       futures.add(api.authReqUpload(fi["target"], f, body: fi["param"]));
     });
-    
+
     await Future.wait(futures);
     await api.user.fetchLogin(); // Refresh user data
   }
-  
+
   @override
   Future<dynamic> fetchDynamicOptions(String api) async {
     try {
@@ -119,7 +121,7 @@ class DefaultLoginService implements LoginService {
       throw e;
     }
   }
-  
+
   @override
   bool isUserLoggedIn() {
     return api.user.isLoggedIn();

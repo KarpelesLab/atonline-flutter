@@ -10,7 +10,7 @@ typedef ImagePickerSaver = void Function(File? image);
 abstract class ImagePickerService {
   /// Takes a photo using the camera
   Future<XFile?> takePhoto();
-  
+
   /// Selects an image from the gallery
   Future<XFile?> pickImageFromGallery();
 }
@@ -18,14 +18,15 @@ abstract class ImagePickerService {
 /// Default implementation of ImagePickerService using image_picker package
 class DefaultImagePickerService implements ImagePickerService {
   final ImagePicker _picker;
-  
-  DefaultImagePickerService({ImagePicker? picker}) : _picker = picker ?? ImagePicker();
-  
+
+  DefaultImagePickerService({ImagePicker? picker})
+      : _picker = picker ?? ImagePicker();
+
   @override
   Future<XFile?> takePhoto() {
     return _picker.pickImage(source: ImageSource.camera);
   }
-  
+
   @override
   Future<XFile?> pickImageFromGallery() {
     return _picker.pickImage(source: ImageSource.gallery);
@@ -36,16 +37,16 @@ class DefaultImagePickerService implements ImagePickerService {
 class ImagePickerWidget extends StatefulWidget {
   /// Callback when an image is selected or changed
   final ImagePickerSaver? onChange;
-  
+
   /// URL to display as the default image
   final String? defaultImageUrl;
-  
+
   /// Service for picking images, allows for dependency injection and testing
   final ImagePickerService? imagePickerService;
 
   const ImagePickerWidget({
-    Key? key, 
-    this.onChange, 
+    Key? key,
+    this.onChange,
     this.defaultImageUrl,
     this.imagePickerService,
   }) : super(key: key);
@@ -57,7 +58,7 @@ class ImagePickerWidget extends StatefulWidget {
 class ImagePickerWidgetState extends State<ImagePickerWidget> {
   File? _image;
   late final ImagePickerService _pickerService;
-  
+
   @override
   void initState() {
     super.initState();
@@ -75,11 +76,11 @@ class ImagePickerWidgetState extends State<ImagePickerWidget> {
     final image = await _pickerService.pickImageFromGallery();
     _processSelectedImage(image);
   }
-  
+
   /// Processes the selected image and updates state
   void _processSelectedImage(XFile? image) {
     if (image == null) return;
-    
+
     setState(() {
       _image = File(image.path);
       if (widget.onChange != null) widget.onChange!(_image);

@@ -15,19 +15,19 @@ import 'web_auth_service.dart';
 class AtOnlineLoginPageBody extends StatefulWidget {
   /// Callback URL scheme for OAuth2 authentication
   final String? callbackUrlScheme;
-  
+
   /// AtOnline API instance
   final AtOnline api;
-  
+
   /// Action to perform (login, register, etc.)
   final String action;
-  
+
   /// Callback when login is complete
   final Function()? onComplete;
-  
+
   /// Login service for API interactions
   final LoginService? loginService;
-  
+
   /// Web authentication service
   final WebAuthService? webAuthService;
 
@@ -54,11 +54,11 @@ class AtOnlineLoginPageBodyState extends State<AtOnlineLoginPageBody> {
   Map<String, TextEditingController> fields = {};
   Map<String, File> _files = {};
   Map<String, dynamic> _fileFields = {};
-  
+
   // Services
   late final LoginService _loginService;
   late final WebAuthService? _webAuthService;
-  
+
   // Constants
   static const oauth2PerLine = 6;
 
@@ -72,15 +72,15 @@ class AtOnlineLoginPageBodyState extends State<AtOnlineLoginPageBody> {
   @override
   void initState() {
     super.initState();
-    
+
     // Initialize services
     _loginService = widget.loginService ?? DefaultLoginService(widget.api);
     _webAuthService = widget.webAuthService;
-    
+
     // Generate a random session id
     _clientSessionId = String.fromCharCodes(
         List.generate(64, (index) => _randomBetween(33, 126)));
-    
+
     // Start the login flow
     _submitData();
   }
@@ -88,7 +88,8 @@ class AtOnlineLoginPageBodyState extends State<AtOnlineLoginPageBody> {
   /// Shows an error message to the user
   void _showError({String? msg}) {
     final message = msg ?? "An error happened, please retry.";
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text(message)));
 
     setState(() {
       busy = false;
@@ -101,7 +102,7 @@ class AtOnlineLoginPageBodyState extends State<AtOnlineLoginPageBody> {
       _showError(msg: "OAuth2 login is not configured properly.");
       return;
     }
-    
+
     String result;
     try {
       result = await _webAuthService!.authenticate(
@@ -115,7 +116,7 @@ class AtOnlineLoginPageBodyState extends State<AtOnlineLoginPageBody> {
 
     final uri = Uri.parse(result);
     final queryParams = uri.queryParameters;
-    
+
     if (queryParams["session"] == null) {
       _showError();
       return;
@@ -123,7 +124,7 @@ class AtOnlineLoginPageBodyState extends State<AtOnlineLoginPageBody> {
 
     // Refresh this new session
     session = queryParams["session"] ?? "";
-    
+
     // In v2 flow, continue with just the session token
     _submitData(override: {});
   }
@@ -140,7 +141,7 @@ class AtOnlineLoginPageBodyState extends State<AtOnlineLoginPageBody> {
     }
 
     Map<String, String> formData = {};
-    
+
     // If override is not null, use it instead of reading fields
     if (override != null) {
       formData = override;
@@ -189,7 +190,7 @@ class AtOnlineLoginPageBodyState extends State<AtOnlineLoginPageBody> {
         _showError();
         return;
       }
-      
+
       final isLoggedIn = await _loginService.completeLogin(token);
 
       if (isLoggedIn) {
@@ -197,13 +198,14 @@ class AtOnlineLoginPageBodyState extends State<AtOnlineLoginPageBody> {
         if (_files.isNotEmpty) {
           await _loginService.uploadFiles(_files, _fileFields);
         }
-        
+
         // Handle redirect if provided in the response (v2 flow)
         if (response["Redirect"] != null) {
           final redirectUrl = response["Redirect"].toString();
-          
+
           // Handle internal or external redirects
-          if (redirectUrl.startsWith("http://") || redirectUrl.startsWith("https://")) {
+          if (redirectUrl.startsWith("http://") ||
+              redirectUrl.startsWith("https://")) {
             launchUrl(Uri.parse(redirectUrl));
           } else {
             // For internal app routes
@@ -212,7 +214,7 @@ class AtOnlineLoginPageBodyState extends State<AtOnlineLoginPageBody> {
           }
         }
       }
-      
+
       // Complete login flow
       if (widget.onComplete != null) {
         widget.onComplete!();
@@ -230,28 +232,28 @@ class AtOnlineLoginPageBodyState extends State<AtOnlineLoginPageBody> {
   void _updateLoginForm(Map<String, dynamic> res) {
     setState(() {
       info = res;
-      
+
       // Get session from response
       if (res["session"] != null) {
         session = res["session"];
       }
-      
+
       // Reset field controllers
       fields = {};
-      
+
       // Create controllers for required fields
       if (res["req"] != null && res["req"] is List) {
         for (var field in res["req"]) {
           fields[field] = TextEditingController();
         }
       }
-      
+
       // v2 format might include initial values for fields
       if (res["fields"] != null && res["fields"] is List) {
         for (var field in res["fields"]) {
           final name = field["name"];
           final defaultVal = field["default"];
-          
+
           // If field is required but not yet added
           if (name != null && fields[name] == null) {
             // Add it with default value if available
@@ -264,7 +266,7 @@ class AtOnlineLoginPageBodyState extends State<AtOnlineLoginPageBody> {
           }
         }
       }
-      
+
       busy = false;
     });
   }
@@ -275,12 +277,12 @@ class AtOnlineLoginPageBodyState extends State<AtOnlineLoginPageBody> {
     Widget child;
     Color backgroundColor = Theme.of(context).primaryColor;
     Color? textColor;
-    
+
     if (info["button"] != null) {
       // Extract button styling from v2 format
       String? text = info["button"]["text"];
       String? icon = info["button"]["icon"];
-      
+
       if (icon != null) {
         // Handle SVG icon
         if (icon.startsWith("data:")) {
@@ -303,10 +305,11 @@ class AtOnlineLoginPageBodyState extends State<AtOnlineLoginPageBody> {
         }
       } else if (text != null) {
         // Use text if no icon
-        textColor = info["button"]["textColor"] != null ? 
-          HexColor.fromHex(info["button"]["textColor"]) : Colors.white;
+        textColor = info["button"]["textColor"] != null
+            ? HexColor.fromHex(info["button"]["textColor"])
+            : Colors.white;
         child = Text(
-          text, 
+          text,
           textAlign: TextAlign.center,
           style: TextStyle(color: textColor),
         );
@@ -314,7 +317,7 @@ class AtOnlineLoginPageBodyState extends State<AtOnlineLoginPageBody> {
         // Fallback to provider name
         child = Text(info["id"] ?? "Login", textAlign: TextAlign.center);
       }
-      
+
       // Apply colors if provided
       if (info["button"]["color"] != null) {
         backgroundColor = HexColor.fromHex(info["button"]["color"]);
@@ -351,7 +354,7 @@ class AtOnlineLoginPageBodyState extends State<AtOnlineLoginPageBody> {
       _showError(msg: "OAuth2 login is not configured properly.");
       return;
     }
-    
+
     // In v2 flow, this triggers the OAuth2 flow by sending the provider id and session
     _submitData(override: {
       "oauth2": info["id"],
@@ -366,7 +369,8 @@ class AtOnlineLoginPageBodyState extends State<AtOnlineLoginPageBody> {
       final widgets = <Widget>[];
 
       // Add message
-      widgets.add(Text(info["message"].toString(), style: const TextStyle(fontSize: 16)));
+      widgets.add(Text(info["message"].toString(),
+          style: const TextStyle(fontSize: 16)));
 
       // Add user info if available
       if (info["user"] != null) {
@@ -399,7 +403,8 @@ class AtOnlineLoginPageBodyState extends State<AtOnlineLoginPageBody> {
                     });
                     _submitData();
                   },
-                  child: const Text("Reset", style: TextStyle(color: Colors.red)),
+                  child:
+                      const Text("Reset", style: TextStyle(color: Colors.red)),
                 )
               : Container(),
           ElevatedButton(
@@ -442,7 +447,7 @@ class AtOnlineLoginPageBodyState extends State<AtOnlineLoginPageBody> {
 
     return Stack(children: stack);
   }
-  
+
   /// Builds the user info section
   void _buildUserInfoSection(List<Widget> widgets, dynamic info) {
     widgets.add(const SizedBox(height: 15));
@@ -455,8 +460,8 @@ class AtOnlineLoginPageBodyState extends State<AtOnlineLoginPageBody> {
                 shape: BoxShape.circle,
                 border: Border.all(color: Colors.white),
                 image: DecorationImage(
-                    image: NetworkImage(info["user"]["Profile"]
-                        ["Media_Image"]["Variation"][User.imageVariation]),
+                    image: NetworkImage(info["user"]["Profile"]["Media_Image"]
+                        ["Variation"][User.imageVariation]),
                     fit: BoxFit.cover),
               ),
             )
@@ -474,17 +479,17 @@ class AtOnlineLoginPageBodyState extends State<AtOnlineLoginPageBody> {
       )
     ]));
   }
-  
+
   /// Builds form fields from the fields data
   void _buildFormFields(List<Widget> widgets, List<dynamic> fieldsData) {
     var firstField = true;
     List<Widget> oauth2Buttons = [];
-    
+
     for (var field in fieldsData) {
       // v2 flow categorizes fields with "cat" field
       final String fieldType = field["type"] ?? "";
       final String fieldCategory = field["cat"] ?? "";
-      
+
       // Handle field based on category and type
       if (fieldCategory == "label" || fieldType == "label") {
         _buildLabelField(widgets, field);
@@ -493,20 +498,11 @@ class AtOnlineLoginPageBodyState extends State<AtOnlineLoginPageBody> {
         switch (fieldType) {
           case "email":
             _buildTextField(
-              widgets, 
-              field, 
-              firstField, 
-              TextInputType.emailAddress
-            );
+                widgets, field, firstField, TextInputType.emailAddress);
             firstField = false;
             break;
           case "phone":
-            _buildTextField(
-              widgets, 
-              field, 
-              firstField, 
-              TextInputType.phone
-            );
+            _buildTextField(widgets, field, firstField, TextInputType.phone);
             firstField = false;
             break;
           case "password":
@@ -514,12 +510,7 @@ class AtOnlineLoginPageBodyState extends State<AtOnlineLoginPageBody> {
             firstField = false;
             break;
           case "text":
-            _buildTextField(
-              widgets, 
-              field, 
-              firstField, 
-              TextInputType.text
-            );
+            _buildTextField(widgets, field, firstField, TextInputType.text);
             firstField = false;
             break;
           case "checkbox":
@@ -542,13 +533,13 @@ class AtOnlineLoginPageBodyState extends State<AtOnlineLoginPageBody> {
         print("Unhandled field type: $fieldType with category: $fieldCategory");
       }
     }
-    
+
     // Arrange OAuth2 buttons if there are any
     if (oauth2Buttons.isNotEmpty && widget.callbackUrlScheme != null) {
       _arrangeOAuth2Buttons(widgets, oauth2Buttons);
     }
   }
-  
+
   /// Builds a select/dropdown field - new in v2
   void _buildSelectField(List<Widget> widgets, dynamic field) {
     // Check if field name exists
@@ -559,7 +550,7 @@ class AtOnlineLoginPageBodyState extends State<AtOnlineLoginPageBody> {
 
     // Default value
     String currentValue = "";
-    
+
     // Initialize the field controller if needed
     if (fields[field["name"]] != null) {
       // If we have an existing value, use that
@@ -572,13 +563,13 @@ class AtOnlineLoginPageBodyState extends State<AtOnlineLoginPageBody> {
       // Otherwise empty controller
       fields[field["name"]] = TextEditingController();
     }
-    
+
     // Check if this is a dynamic select
     if (field["source"] != null) {
       _buildDynamicSelectField(widgets, field, currentValue);
       return;
     }
-    
+
     // Build static dropdown items
     List<DropdownMenuItem<String>> items = [];
     if (field["values"] != null && field["values"] is List) {
@@ -591,7 +582,7 @@ class AtOnlineLoginPageBodyState extends State<AtOnlineLoginPageBody> {
         }
       }
     }
-    
+
     // Create dropdown
     widgets.add(
       DropdownButtonFormField<String>(
@@ -612,9 +603,10 @@ class AtOnlineLoginPageBodyState extends State<AtOnlineLoginPageBody> {
     );
     widgets.add(const SizedBox(height: 15));
   }
-  
+
   /// Builds a dynamic select field that fetches options from an API
-  void _buildDynamicSelectField(List<Widget> widgets, dynamic field, String currentValue) {
+  void _buildDynamicSelectField(
+      List<Widget> widgets, dynamic field, String currentValue) {
     final source = field["source"];
     if (source == null || source["api"] == null) {
       print("Dynamic select missing source or api field");
@@ -624,7 +616,7 @@ class AtOnlineLoginPageBodyState extends State<AtOnlineLoginPageBody> {
     final String api = source["api"];
     final String labelField = source["label_field"] ?? "name";
     final String keyField = source["key_field"] ?? "id";
-    
+
     // Create a loading dropdown initially
     widgets.add(
       FutureBuilder<List<DropdownMenuItem<String>>>(
@@ -645,7 +637,8 @@ class AtOnlineLoginPageBodyState extends State<AtOnlineLoginPageBody> {
             return Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text("Could not load options", style: TextStyle(color: Colors.red)),
+                Text("Could not load options",
+                    style: TextStyle(color: Colors.red)),
                 const SizedBox(height: 15),
               ],
             );
@@ -677,7 +670,8 @@ class AtOnlineLoginPageBodyState extends State<AtOnlineLoginPageBody> {
             return Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text("No options available", style: TextStyle(fontStyle: FontStyle.italic)),
+                Text("No options available",
+                    style: TextStyle(fontStyle: FontStyle.italic)),
                 const SizedBox(height: 15),
               ],
             );
@@ -686,19 +680,16 @@ class AtOnlineLoginPageBodyState extends State<AtOnlineLoginPageBody> {
       ),
     );
   }
-  
+
   /// Fetches dynamic select options from the API
   Future<List<DropdownMenuItem<String>>> _fetchDynamicOptions(
-    String api, 
-    String labelField, 
-    String keyField
-  ) async {
+      String api, String labelField, String keyField) async {
     try {
       final result = await _loginService.fetchDynamicOptions(api);
-      
+
       // Process the results into dropdown items
       List<DropdownMenuItem<String>> items = [];
-      
+
       // If results is a list, process each item
       if (result is List) {
         for (var item in result) {
@@ -709,9 +700,11 @@ class AtOnlineLoginPageBodyState extends State<AtOnlineLoginPageBody> {
             ));
           }
         }
-      } 
+      }
       // If results is a map (e.g. paginated results), look for items array
-      else if (result is Map && result["rows"] != null && result["rows"] is List) {
+      else if (result is Map &&
+          result["rows"] != null &&
+          result["rows"] is List) {
         for (var item in result["rows"]) {
           if (item[keyField] != null && item[labelField] != null) {
             items.add(DropdownMenuItem<String>(
@@ -721,14 +714,14 @@ class AtOnlineLoginPageBodyState extends State<AtOnlineLoginPageBody> {
           }
         }
       }
-      
+
       return items;
     } catch (e) {
       print("Error fetching dynamic options: $e");
       throw e;
     }
   }
-  
+
   /// Builds a label field
   void _buildLabelField(List<Widget> widgets, dynamic field) {
     // Handle style for error messages
@@ -738,7 +731,7 @@ class AtOnlineLoginPageBodyState extends State<AtOnlineLoginPageBody> {
     } else if (field["link"] != null) {
       style = const TextStyle(decoration: TextDecoration.underline);
     }
-    
+
     if (field["link"] == null) {
       widgets.add(Text(
         field["label"].toString(),
@@ -755,14 +748,10 @@ class AtOnlineLoginPageBodyState extends State<AtOnlineLoginPageBody> {
     }
     widgets.add(const SizedBox(height: 15));
   }
-  
+
   /// Builds a text input field
-  void _buildTextField(
-    List<Widget> widgets, 
-    dynamic field, 
-    bool autofocus,
-    TextInputType keyboardType
-  ) {
+  void _buildTextField(List<Widget> widgets, dynamic field, bool autofocus,
+      TextInputType keyboardType) {
     widgets.add(TextFormField(
       key: Key(field["name"]),
       controller: fields[field["name"]],
@@ -774,9 +763,10 @@ class AtOnlineLoginPageBodyState extends State<AtOnlineLoginPageBody> {
     ));
     widgets.add(const SizedBox(height: 15));
   }
-  
+
   /// Builds a password field
-  void _buildPasswordField(List<Widget> widgets, dynamic field, bool autofocus) {
+  void _buildPasswordField(
+      List<Widget> widgets, dynamic field, bool autofocus) {
     widgets.add(TextFormField(
       key: Key(field["name"]),
       controller: fields[field["name"]],
@@ -788,7 +778,7 @@ class AtOnlineLoginPageBodyState extends State<AtOnlineLoginPageBody> {
     ));
     widgets.add(const SizedBox(height: 15));
   }
-  
+
   /// Builds a checkbox field
   void _buildCheckboxField(List<Widget> widgets, dynamic field) {
     widgets.add(Row(
@@ -814,7 +804,7 @@ class AtOnlineLoginPageBodyState extends State<AtOnlineLoginPageBody> {
     ));
     widgets.add(const SizedBox(height: 15));
   }
-  
+
   /// Builds an image picker field
   void _buildImageField(List<Widget> widgets, dynamic field) {
     if (field["label"] != null) {
@@ -831,10 +821,11 @@ class AtOnlineLoginPageBodyState extends State<AtOnlineLoginPageBody> {
       },
     ));
   }
-  
+
   /// Arranges OAuth2 buttons in rows
   void _arrangeOAuth2Buttons(List<Widget> widgets, List<Widget> oauth2Buttons) {
-    double buttonWidth = ((MediaQuery.of(context).size.width - 30) / oauth2PerLine) * 0.95;
+    double buttonWidth =
+        ((MediaQuery.of(context).size.width - 30) / oauth2PerLine) * 0.95;
     if (buttonWidth > 70) buttonWidth = 70;
 
     while (oauth2Buttons.isNotEmpty) {
@@ -846,13 +837,15 @@ class AtOnlineLoginPageBodyState extends State<AtOnlineLoginPageBody> {
         currentRow = oauth2Buttons;
         oauth2Buttons = [];
       }
-      
-      final rowChildren = currentRow.map((button) => SizedBox(
-        width: buttonWidth,
-        height: buttonWidth,
-        child: button,
-      )).toList();
-      
+
+      final rowChildren = currentRow
+          .map((button) => SizedBox(
+                width: buttonWidth,
+                height: buttonWidth,
+                child: button,
+              ))
+          .toList();
+
       widgets.add(Row(children: rowChildren));
     }
     widgets.add(const SizedBox(height: 15));
