@@ -201,6 +201,7 @@ class AtOnline with ChangeNotifier {
     } catch (e) {
       if (kDebugMode) {
         print("Request error: $e");
+        print("Stack trace: ${StackTrace.current}");
       }
       rethrow;
     }
@@ -229,7 +230,7 @@ class AtOnline with ChangeNotifier {
     // Check for API-level error
     if (responseData["result"] != "success") {
       if (kDebugMode) {
-        print("Got API error: $responseData");
+        print("Got API error: ${responseData.toString()}");
       }
       throw AtOnlinePlatformException(responseData);
     }
@@ -398,11 +399,12 @@ class AtOnline with ChangeNotifier {
     
     // Handle non-JSON errors
     if (kDebugMode) {
-      print("API Error: ${response.statusCode} - ${response.body}");
+      print("API Error: ${response.statusCode}");
+      print("Response body: ${response.body}");
     }
     
     throw AtOnlineNetworkException(
-        "Invalid response from API: ${response.statusCode} ${response.reasonPhrase}");
+        "Invalid response from API: ${response.statusCode}");
   }
 
   /// Makes an authenticated request to the AtOnline API
@@ -595,6 +597,7 @@ class AtOnline with ChangeNotifier {
       storageLoadCompleted = true;
       if (kDebugMode) {
         print("Error reading token from storage: $e");
+        print("Stack trace: ${StackTrace.current}");
       }
       return false;
     }
@@ -683,7 +686,7 @@ class AtOnline with ChangeNotifier {
   /// Stores authentication tokens in secure storage
   /// 
   /// @param res The OAuth2 token response containing access_token, expires_in, etc.
-  Future<void> storeToken(dynamic res) async {
+  Future<void> storeToken(Map<String, dynamic> res) async {
     // Calculate expiration time
     int now = (DateTime.now().millisecondsSinceEpoch / 1000).round();
     expiresV = int.parse(res["expires_in"].toString()) + now;

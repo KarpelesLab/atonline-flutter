@@ -1,27 +1,18 @@
 import 'dart:convert';
 import 'dart:io';
-import 'dart:typed_data';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter/foundation.dart';
 import 'package:atonline_api/atonline_api.dart';
-import 'package:mockito/mockito.dart';
 import 'package:http/http.dart' as http;
 import 'package:mockito/annotations.dart';
 import 'package:path/path.dart' as p;
 import 'package:mime/mime.dart';
 
-import 'atonline_api_test.mocks.dart';
-
 @GenerateMocks([http.Client])
 void main() {
   group('AtOnline API Tests', () {
-    late AtOnline api;
-    late MockClient mockClient;
-
     setUp(() {
-      mockClient = MockClient();
-      api = AtOnline('test_app_id');
-      // Ideally we would inject the mockClient into AtOnline for testing
+      // Setup would be used if we could inject mock client into AtOnline
     });
     
     test('API will include body in query params for GET requests', () async {
@@ -322,13 +313,9 @@ void main() {
     });
   });
   
-  group('File Upload Tests with Mocks', () {
-    late MockClient mockClient;
-    late AtOnline api;
-    
+  group('File Upload Tests with Mocks', () {    
     setUp(() {
-      mockClient = MockClient();
-      api = AtOnline('test_app_id');
+      // Setup would create mocks if we could inject them
     });
     
     test('File upload properties and parameters validation', () async {
@@ -423,7 +410,8 @@ void main() {
       
       // Verify that the API class requires authentication for token
       try {
-        await api.token();
+        final testApi = AtOnline('test_app_id');
+        await testApi.token();
         fail('Should have thrown exception due to missing token');
       } catch (e) {
         expect(e, isA<AtOnlineLoginException>());
@@ -467,7 +455,6 @@ void main() {
     
     test('API can send and receive parameters', () async {
       // This test passes parameters to Misc/Debug:params and checks they are echoed back
-      final api = AtOnline('test_client_id');
       final testParams = {'test': 'value', 'number': '123'};
       
       try {
