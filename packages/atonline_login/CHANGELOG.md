@@ -1,3 +1,15 @@
+## [0.6.2] - March 22nd 2025
+
+* Added explicit support for User Flow v2 API format:
+  * Added v2: true parameter to all User:flow API requests
+  * Improved token handling for Map token objects
+  * Treat token objects as opaque without accessing their contents
+  * Better handling of different response formats (map and tuple)
+  * Enhanced debug logging for API interactions
+* Removed WebAuthService in favor of direct URL launching with url_launcher
+* Better OAuth2 button detection and rendering
+* Improved error handling and messaging
+
 ## [0.6.1] - March 22nd 2025
 
 * Initial support for User Flow v2 API format:

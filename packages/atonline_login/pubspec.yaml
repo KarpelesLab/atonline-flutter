@@ -1,6 +1,6 @@
 name: atonline_login
 description: Client-side login page for applications using AtOnline apis and custom realms
-version: 0.6.1
+version: 0.6.2
 homepage: https://github.com/AtOnline/atonline-flutter
 
 environment:
@@ -15,7 +15,6 @@ dependencies:
   image_picker: ^1.1.2 # flutter team
   atonline_api: ^0.4.19+2
   flutter_svg: ^2.0.10+1
-  flutter_web_auth_2: ^3.1.2 # non official
 
 dev_dependencies:
   flutter_test:
