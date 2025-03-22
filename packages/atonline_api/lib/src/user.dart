@@ -284,9 +284,8 @@ class LoginPageState extends State<LoginPage> {
     }
 
     // Exchange authorization code for tokens
-    var auth = await widget.api.req("OAuth2:token",
+    var auth = await widget.api.rawReq("OAuth2:token",
         method: "POST",
-        skipDecode: true,
         body: <String, String?>{
           "client_id": widget.api.appId,
           "grant_type": "authorization_code",

@@ -1,3 +1,12 @@
+## [0.4.22] March 22nd 2025
+
+* Improved API method type safety:
+  * Updated req, authReq, optAuthReq, and authReqUpload methods to return Future<AtOnlineApiResult>
+  * Added rawReq, rawAuthReq, and rawOptAuthReq methods for cases needing raw response data
+  * Removed skipDecode parameter in favor of dedicated raw methods
+  * API methods now have clearer, more specific return types
+  * Added comprehensive tests for the new methods
+
 ## [0.4.21] March 22nd 2025
 
 * Added access rights support:

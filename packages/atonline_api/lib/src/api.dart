@@ -58,6 +58,7 @@ class AtOnlineApiResult extends Iterable<dynamic> {
   String? result;
   /// Shortcut to access the data field in the response
   dynamic get data => res["data"];
+  
 
   /// Gets the access right for a specific object ID
   /// 
@@ -183,23 +184,24 @@ class AtOnline with ChangeNotifier {
     return _user!;
   }
 
-  /// Makes a request to the AtOnline API
+  /// Makes a request to the AtOnline API and returns the raw JSON response
   /// 
+  /// This is useful when you need to access the raw response data directly
+  /// without the structured AtOnlineApiResult wrapper
+  ///
   /// @param path The API endpoint path
   /// @param method HTTP method (GET, POST, etc.)
   /// @param body Request body (will be JSON encoded)
   /// @param headers Additional HTTP headers
   /// @param context Context parameters to send with the request
-  /// @param skipDecode If true, returns raw response instead of AtOnlineApiResult
-  /// @return API response as AtOnlineApiResult or raw JSON if skipDecode is true
-  Future<dynamic> req(String path,
+  /// @return Raw JSON response as dynamic (usually Map<String, dynamic>)
+  Future<dynamic> rawReq(String path,
       {String method = "GET",
       dynamic body,
       Map<String, String>? headers,
-      Map<String, String>? context,
-      bool skipDecode = false}) async {
+      Map<String, String>? context}) async {
     if (kDebugMode) {
-      print("Running $method $path");
+      print("Running raw $method $path");
     }
 
     // Prepare request parameters
@@ -247,11 +249,31 @@ class AtOnline with ChangeNotifier {
       throw AtOnlineNetworkException("Failed to parse response as JSON: $e");
     }
 
-    // Return raw JSON if skipDecode is true
-    if (skipDecode) {
-      return responseData;
-    }
+    return responseData;
+  }
 
+  /// Makes a request to the AtOnline API and returns a structured API result
+  /// 
+  /// @param path The API endpoint path
+  /// @param method HTTP method (GET, POST, etc.)
+  /// @param body Request body (will be JSON encoded)
+  /// @param headers Additional HTTP headers
+  /// @param context Context parameters to send with the request
+  /// @return API response as AtOnlineApiResult
+  Future<AtOnlineApiResult> req(String path,
+      {String method = "GET",
+      dynamic body,
+      Map<String, String>? headers,
+      Map<String, String>? context}) async {
+    // Get the raw response
+    final responseData = await rawReq(
+      path,
+      method: method,
+      body: body,
+      headers: headers,
+      context: context
+    );
+    
     // Check for API-level error
     if (responseData["result"] != "success") {
       if (kDebugMode) {
@@ -432,6 +454,30 @@ class AtOnline with ChangeNotifier {
         "Invalid response from API: ${response.statusCode}");
   }
 
+  /// Makes an authenticated request to the AtOnline API and returns the raw JSON response
+  /// 
+  /// Automatically adds Bearer token authentication header
+  /// 
+  /// @param path The API endpoint path
+  /// @param method HTTP method (GET, POST, etc.)
+  /// @param body Request body
+  /// @param headers Additional HTTP headers
+  /// @param context Context parameters
+  /// @return Raw JSON response as dynamic (usually Map<String, dynamic>)
+  Future<dynamic> rawAuthReq(String path,
+      {String method = "GET",
+      dynamic body,
+      Map<String, String>? headers,
+      Map<String, String>? context}) async {
+    if (headers == null) {
+      headers = <String, String>{};
+    }
+    // Add authorization header with token
+    headers["Authorization"] = "Bearer " + await token();
+    return rawReq(path,
+        method: method, body: body, headers: headers, context: context);
+  }
+  
   /// Makes an authenticated request to the AtOnline API
   /// 
   /// Automatically adds Bearer token authentication header
@@ -441,8 +487,8 @@ class AtOnline with ChangeNotifier {
   /// @param body Request body
   /// @param headers Additional HTTP headers
   /// @param context Context parameters
-  /// @return API response
-  Future<dynamic> authReq(String path,
+  /// @return API response as AtOnlineApiResult
+  Future<AtOnlineApiResult> authReq(String path,
       {String method = "GET",
       dynamic body,
       Map<String, String>? headers,
@@ -456,6 +502,36 @@ class AtOnline with ChangeNotifier {
         method: method, body: body, headers: headers, context: context);
   }
 
+  /// Makes an optionally authenticated request to the AtOnline API and returns the raw JSON response
+  /// 
+  /// Tries to add authentication but continues if authentication fails
+  /// 
+  /// @param path The API endpoint path
+  /// @param method HTTP method (GET, POST, etc.)
+  /// @param body Request body
+  /// @param headers Additional HTTP headers
+  /// @param context Context parameters
+  /// @return Raw JSON response as dynamic (usually Map<String, dynamic>)
+  Future<dynamic> rawOptAuthReq(String path,
+      {String method = "GET",
+      dynamic body,
+      Map<String, String>? headers,
+      Map<String, String>? context}) async {
+    try {
+      if (headers == null) {
+        headers = <String, String>{};
+      }
+      // Try to add authorization but continue even if it fails
+      headers["Authorization"] = "Bearer " + await token();
+    } on AtOnlineLoginException {
+      // Continue without authentication
+    } on AtOnlinePlatformException {
+      // Continue without authentication
+    }
+    return rawReq(path,
+        method: method, body: body, headers: headers, context: context);
+  }
+
   /// Makes an optionally authenticated request to the AtOnline API
   /// 
   /// Tries to add authentication but continues if authentication fails
@@ -465,8 +541,8 @@ class AtOnline with ChangeNotifier {
   /// @param body Request body
   /// @param headers Additional HTTP headers
   /// @param context Context parameters
-  /// @return API response
-  Future<dynamic> optAuthReq(String path,
+  /// @return API response as AtOnlineApiResult
+  Future<AtOnlineApiResult> optAuthReq(String path,
       {String method = "GET",
       dynamic body,
       Map<String, String>? headers,
@@ -496,8 +572,8 @@ class AtOnline with ChangeNotifier {
   /// @param headers Additional HTTP headers
   /// @param context Context parameters
   /// @param progress Optional callback for tracking upload progress
-  /// @return API response after upload is complete
-  Future<dynamic> authReqUpload(String path, File f,
+  /// @return API response as AtOnlineApiResult after upload is complete
+  Future<AtOnlineApiResult> authReqUpload(String path, File f,
       {Map<String, dynamic>? body,
       Map<String, String>? headers,
       Map<String, String>? context,
