@@ -159,6 +159,50 @@ void main() {
       // Test exception for iteration on non-iterable
       expect(() => result.iterator, throwsException);
     });
+    
+    test('AtOnlineApiResult can get access rights for objects', () {
+      // Create a response with access rights
+      final responseWithAccess = {
+        'result': 'success',
+        'data': {'key': 'value'},
+        'access': {
+          'obj-12345': {
+            'required': 'r',
+            'available': 'O'
+          },
+          'chan-xjnjql-lbnb-grnm-rk4f-eaecdqkm': {
+            'required': 'r',
+            'available': '?'
+          },
+          'obj-67890': {
+            'required': 'W',
+            'available': 'W'
+          },
+          'obj-delete': {
+            'required': 'D',
+            'available': 'D'
+          }
+        }
+      };
+      
+      final result = AtOnlineApiResult(responseWithAccess);
+      
+      // Test access rights lookup
+      expect(result.getAccessForObject('obj-12345'), 'O');
+      expect(result.getAccessForObject('chan-xjnjql-lbnb-grnm-rk4f-eaecdqkm'), '?');
+      expect(result.getAccessForObject('obj-67890'), 'W');
+      expect(result.getAccessForObject('obj-delete'), 'D');
+      expect(result.getAccessForObject('non-existent'), isNull);
+      
+      // Create a response without access field
+      final responseWithoutAccess = {
+        'result': 'success',
+        'data': {'key': 'value'}
+      };
+      
+      final resultNoAccess = AtOnlineApiResult(responseWithoutAccess);
+      expect(resultNoAccess.getAccessForObject('obj-12345'), isNull);
+    });
 
     test('API builds URIs with correct query parameters', () {
       // Create a request URI for a GET request with body

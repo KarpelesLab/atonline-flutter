@@ -59,6 +59,31 @@ class AtOnlineApiResult extends Iterable<dynamic> {
   /// Shortcut to access the data field in the response
   dynamic get data => res["data"];
 
+  /// Gets the access right for a specific object ID
+  /// 
+  /// Access rights are represented as a single letter:
+  /// - O: Owner
+  /// - A: Admin
+  /// - D: Delete
+  /// - W: Write
+  /// - C: Create
+  /// - R: Read
+  /// - r: Anonymous read (the only lowercase access right)
+  /// - ?: Right wasn't obtained from database (wasn't needed)
+  /// 
+  /// @param objectId The ID of the object to check access for
+  /// @return The access right as a string, or null if not found
+  String? getAccessForObject(String objectId) {
+    if (res.containsKey("access") && 
+        res["access"] is Map && 
+        res["access"].containsKey(objectId) &&
+        res["access"][objectId] is Map &&
+        res["access"][objectId].containsKey("available")) {
+      return res["access"][objectId]["available"];
+    }
+    return null;
+  }
+
   // Used when data is a key/values pair and not accessible by index.
   dynamic _iterableValue;
 

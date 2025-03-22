@@ -1,3 +1,11 @@
+## [0.4.21] March 22nd 2025
+
+* Added access rights support:
+  * New getAccessForObject method to retrieve object access rights
+  * Access rights include Owner (O), Admin (A), Delete (D), Write (W), Create (C), Read (R), Anonymous read (r), and Unknown (?)
+  * Only anonymous read uses a lowercase letter; all other rights use uppercase letters
+  * Added tests for the new functionality
+
 ## [0.4.20] March 22nd 2025
 
 * Improved type safety:
