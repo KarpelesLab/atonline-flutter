@@ -1,3 +1,11 @@
+## [0.4.20] March 22nd 2025
+
+* Improved type safety:
+  * Update storeToken function to explicitly use Map<String,dynamic> parameter type
+  * Fix analyzer warnings in test files
+  * Improve error logging with stack traces
+  * Clean up unused imports and variables
+
 ## [0.4.19+2] March 16th 2025
 
 * Enhanced test coverage with file upload testing:
