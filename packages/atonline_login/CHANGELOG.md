@@ -1,3 +1,17 @@
+## [0.6.3] - March 22nd 2025
+
+* Optimized User Flow v2 API format implementation:
+  * **Fixed critical issue**: Now correctly handles parameter inclusion based on session state:
+    * Initial requests (empty session): Include action, v2, and client_id
+    * Subsequent requests (with session): Include only session and image_variation
+  * Added support for redirect_uri in OAuth2 authentication flow
+  * Enhanced session handling for the OAuth2 flow
+  * Better logging for initial vs. subsequent API calls
+  * Fixed OAuth2 button handling to properly include redirect_uri
+  * Enhanced debugging with complete JSON-encoded request and response logs
+  * Improved developer mode by showing all data including tokens and passwords
+  * Logs now show the exact data being sent and received for easier debugging
+
 ## [0.6.2] - March 22nd 2025
 
 * Added explicit support for User Flow v2 API format:

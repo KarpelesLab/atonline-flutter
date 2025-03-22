@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:atonline_api/atonline_api.dart';
@@ -104,9 +105,13 @@ class AtOnlineLoginPageBodyState extends State<AtOnlineLoginPageBody> {
       // through app links / universal links / deep links
       // Since we can't handle the callback here, we'll just continue with empty session
 
-      // In v2 flow, continue with an empty session
-      // This is a placeholder - in a real implementation, you would need to
-      // receive the session from the callback URL
+      // In v2 flow, the callback to the app would include a session
+      // This is a placeholder - in a real implementation, you would extract
+      // the session from the callback URL
+      // For now, we reset the session to empty to start a new flow
+      setState(() {
+        session = "";
+      });
       _submitData(override: {});
     } catch (e) {
       _showError(msg: "Operation has been cancelled: $e");
@@ -132,10 +137,29 @@ class AtOnlineLoginPageBodyState extends State<AtOnlineLoginPageBody> {
       formData = override;
 
       if (kDebugMode) {
-        print('🔄 Submit data with override:');
+        // Prepare actual request that will be sent
+        final Map<String, dynamic> requestParams = {};
+
+        // Initial vs subsequent requests have different parameters
+        if (session.isEmpty) {
+          requestParams['action'] = widget.action;
+          requestParams['v2'] = true;
+          requestParams['client_id'] = widget.api.appId;
+          print('🔄 Initial request with override data');
+        } else {
+          requestParams['session'] = session;
+          requestParams['image_variation'] = User.imageVariation;
+          print(
+              '🔄 Continued request with override data and session: $session');
+        }
+
+        // Add all form data to the request
         formData.forEach((key, value) {
-          print('  $key: $value');
+          requestParams[key] = value;
         });
+
+        // Log the actual request parameters with all data in dev mode
+        print('Request parameters: ${jsonEncode(requestParams)}');
       }
     } else if (fields.isNotEmpty) {
       // Gather all the required fields from the form
@@ -144,13 +168,28 @@ class AtOnlineLoginPageBodyState extends State<AtOnlineLoginPageBody> {
       });
 
       if (kDebugMode) {
-        print('🔄 Submit form data:');
-        print('  Action: ${widget.action}');
-        print('  Session: $session');
+        // Prepare actual request that will be sent
+        final Map<String, dynamic> requestParams = {};
+
+        // Initial vs subsequent requests have different parameters
+        if (session.isEmpty) {
+          requestParams['action'] = widget.action;
+          requestParams['v2'] = true;
+          requestParams['client_id'] = widget.api.appId;
+          print('🔄 Initial request with form data');
+        } else {
+          requestParams['session'] = session;
+          requestParams['image_variation'] = User.imageVariation;
+          print('🔄 Continued request with form data and session: $session');
+        }
+
+        // Add all form data to the request
         formData.forEach((key, value) {
-          final maskedValue = key.contains('password') ? '****' : value;
-          print('  $key: $maskedValue');
+          requestParams[key] = value;
         });
+
+        // Log the actual request parameters with all data in dev mode
+        print('Request parameters: ${jsonEncode(requestParams)}');
       }
     }
 
@@ -163,6 +202,22 @@ class AtOnlineLoginPageBodyState extends State<AtOnlineLoginPageBody> {
 
       if (kDebugMode) {
         print('📥 Login response status - Type: ${res.runtimeType}');
+
+        // Log the actual response data without masking in dev mode
+        try {
+          if (res is Map) {
+            // Log all data including tokens
+            print('Response data: ${jsonEncode(res)}');
+          } else if (res is List) {
+            // Log the complete list with tokens
+            print('Response data (list): ${jsonEncode(res)}');
+          } else {
+            print(
+                'Response data type not directly serializable: ${res.runtimeType}');
+          }
+        } catch (e) {
+          print('Failed to serialize response: $e');
+        }
       }
 
       bool isComplete = false;
@@ -239,23 +294,24 @@ class AtOnlineLoginPageBodyState extends State<AtOnlineLoginPageBody> {
         print('Response type: ${response.runtimeType}');
       }
 
-      Map<String, dynamic>? token; // Must be a Map containing access_token, refresh_token, etc.
+      Map<String, dynamic>?
+          token; // Must be a Map containing access_token, refresh_token, etc.
       String? redirectUrl;
 
       // Handle different response formats
       dynamic tokenObj;
-      
+
       if (response is Map<String, dynamic>) {
         // Standard map format
         tokenObj = response["Token"] ?? response["token"];
         redirectUrl = response["Redirect"] ?? response["redirect"];
-        
+
         // Token must be a Map
         if (tokenObj is Map<String, dynamic>) {
           if (kDebugMode) {
             print('Token is a Map object');
           }
-          
+
           // Cast to proper Map<String, dynamic> type
           token = Map<String, dynamic>.from(tokenObj);
         } else {
@@ -273,7 +329,8 @@ class AtOnlineLoginPageBodyState extends State<AtOnlineLoginPageBody> {
             token = Map<String, dynamic>.from(response[1]);
           } else {
             if (kDebugMode) {
-              print('Tuple format response[1] is not a Map: ${response[1]?.runtimeType}');
+              print(
+                  'Tuple format response[1] is not a Map: ${response[1]?.runtimeType}');
             }
           }
         }
@@ -295,7 +352,7 @@ class AtOnlineLoginPageBodyState extends State<AtOnlineLoginPageBody> {
       if (kDebugMode) {
         print('Using token object (treated as opaque)');
       }
-      
+
       final isLoggedIn = await _loginService.completeLogin(token);
 
       if (isLoggedIn) {
@@ -531,8 +588,17 @@ class AtOnlineLoginPageBodyState extends State<AtOnlineLoginPageBody> {
     }
 
     // In v2 flow, this triggers the OAuth2 flow by sending the provider id and session
+    // For the redirect_uri, use the callback scheme provided by the app
+    final redirectUri = "${widget.callbackUrlScheme}://";
+
+    if (kDebugMode) {
+      print('OAuth2 login with provider ${info["id"]}');
+      print('Using redirect URI: $redirectUri');
+    }
+
     _submitData(override: {
       "oauth2": info["id"],
+      "redirect_uri": redirectUri,
     });
   }
 
