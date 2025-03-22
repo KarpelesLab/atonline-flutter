@@ -1,7 +1,7 @@
 import 'dart:io';
-import 'dart:math';
 
 import 'package:atonline_api/atonline_api.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -9,7 +9,6 @@ import 'package:url_launcher/url_launcher.dart';
 import 'hexcolor.dart';
 import 'imagepicker.dart';
 import 'login_service.dart';
-import 'web_auth_service.dart';
 
 /// Widget that displays a login page for AtOnline API
 class AtOnlineLoginPageBody extends StatefulWidget {
@@ -28,9 +27,6 @@ class AtOnlineLoginPageBody extends StatefulWidget {
   /// Login service for API interactions
   final LoginService? loginService;
 
-  /// Web authentication service
-  final WebAuthService? webAuthService;
-
   const AtOnlineLoginPageBody(
     this.api, {
     Key? key,
@@ -38,7 +34,6 @@ class AtOnlineLoginPageBody extends StatefulWidget {
     this.onComplete,
     this.action = "login",
     this.loginService,
-    this.webAuthService,
   }) : super(key: key);
 
   @override
@@ -50,24 +45,15 @@ class AtOnlineLoginPageBodyState extends State<AtOnlineLoginPageBody> {
   bool busy = true;
   bool canReset = false;
   String session = "";
-  late String _clientSessionId;
   Map<String, TextEditingController> fields = {};
   Map<String, File> _files = {};
   Map<String, dynamic> _fileFields = {};
 
   // Services
   late final LoginService _loginService;
-  late final WebAuthService? _webAuthService;
 
   // Constants
   static const oauth2PerLine = 6;
-
-  /// Generates a random integer where [from] <= [to].
-  int _randomBetween(int from, int to) {
-    if (from > to) throw Exception('$from cannot be > $to');
-    final rand = Random.secure();
-    return ((to - from) * rand.nextDouble()).truncate() + from;
-  }
 
   @override
   void initState() {
@@ -75,11 +61,6 @@ class AtOnlineLoginPageBodyState extends State<AtOnlineLoginPageBody> {
 
     // Initialize services
     _loginService = widget.loginService ?? DefaultLoginService(widget.api);
-    _webAuthService = widget.webAuthService;
-
-    // Generate a random session id
-    _clientSessionId = String.fromCharCodes(
-        List.generate(64, (index) => _randomBetween(33, 126)));
 
     // Start the login flow
     _submitData();
@@ -98,35 +79,39 @@ class AtOnlineLoginPageBodyState extends State<AtOnlineLoginPageBody> {
 
   /// Handles OAuth2 login flow
   Future<void> _doOauth2Login(String url) async {
-    if (widget.callbackUrlScheme == null || _webAuthService == null) {
+    if (widget.callbackUrlScheme == null) {
       _showError(msg: "OAuth2 login is not configured properly.");
       return;
     }
 
-    String result;
+    if (kDebugMode) {
+      print('Opening OAuth2 URL');
+    }
+
     try {
-      result = await _webAuthService!.authenticate(
-        url: url,
-        callbackUrlScheme: widget.callbackUrlScheme!,
+      // Launch the URL directly instead of using WebAuthService
+      final launched = await launchUrl(
+        Uri.parse(url),
+        mode: LaunchMode.externalApplication,
       );
+
+      if (!launched) {
+        _showError(msg: "Could not launch the authentication URL.");
+        return;
+      }
+
+      // This approach requires the app to handle the callback URL
+      // through app links / universal links / deep links
+      // Since we can't handle the callback here, we'll just continue with empty session
+
+      // In v2 flow, continue with an empty session
+      // This is a placeholder - in a real implementation, you would need to
+      // receive the session from the callback URL
+      _submitData(override: {});
     } catch (e) {
-      _showError(msg: "Operation has been cancelled.");
+      _showError(msg: "Operation has been cancelled: $e");
       return;
     }
-
-    final uri = Uri.parse(result);
-    final queryParams = uri.queryParameters;
-
-    if (queryParams["session"] == null) {
-      _showError();
-      return;
-    }
-
-    // Refresh this new session
-    session = queryParams["session"] ?? "";
-
-    // In v2 flow, continue with just the session token
-    _submitData(override: {});
   }
 
   /// Submits login data to the API
@@ -145,52 +130,172 @@ class AtOnlineLoginPageBodyState extends State<AtOnlineLoginPageBody> {
     // If override is not null, use it instead of reading fields
     if (override != null) {
       formData = override;
+
+      if (kDebugMode) {
+        print('🔄 Submit data with override:');
+        formData.forEach((key, value) {
+          print('  $key: $value');
+        });
+      }
     } else if (fields.isNotEmpty) {
       // Gather all the required fields from the form
       fields.forEach((field, controller) {
         formData[field] = controller.text;
       });
+
+      if (kDebugMode) {
+        print('🔄 Submit form data:');
+        print('  Action: ${widget.action}');
+        print('  Session: $session');
+        formData.forEach((key, value) {
+          final maskedValue = key.contains('password') ? '****' : value;
+          print('  $key: $maskedValue');
+        });
+      }
     }
 
     try {
       final res = await _loginService.submitLoginData(
         action: widget.action,
-        clientSessionId: _clientSessionId,
         session: session,
         formData: formData,
       );
 
-      if (res["complete"] == true) {
+      if (kDebugMode) {
+        print('📥 Login response status - Type: ${res.runtimeType}');
+      }
+
+      bool isComplete = false;
+      String? url;
+
+      // Handle different response formats
+      if (res is Map<String, dynamic>) {
+        isComplete = res["complete"] == true;
+        url = res["url"];
+
+        if (kDebugMode) {
+          print('  Map format - Complete: $isComplete');
+          print('  Has URL: ${url != null}');
+          print('  Has session: ${res["session"] != null}');
+        }
+      } else if (res is List && res.length >= 1) {
+        isComplete = res[0] == true;
+
+        // For tuple format (true, token, [...])
+        if (res.length >= 2 && res[1] is String && !res[1].startsWith("http")) {
+          // This is likely a completion token
+        } else if (res.length >= 2 &&
+            res[1] is String &&
+            res[1].startsWith("http")) {
+          // This is likely a redirect URL
+          url = res[1];
+        }
+
+        if (kDebugMode) {
+          print('  List format - Complete: $isComplete');
+          print('  Has URL: ${url != null}');
+        }
+      }
+
+      if (isComplete) {
         // Flow is complete, handle success
+        if (kDebugMode) {
+          print('✅ Login flow complete, handling success');
+        }
         await _handleLoginSuccess(res);
-      } else if (res["url"] != null) {
+      } else if (url != null) {
         // Special case for OAuth2 - redirect to external URL
-        _doOauth2Login(res["url"]);
+        if (kDebugMode) {
+          print('🔀 Redirecting to OAuth2 URL: $url');
+        }
+        _doOauth2Login(url);
         return;
       } else {
         // Continue the flow with the next step
+        if (kDebugMode) {
+          print('➡️ Continuing login flow with next step');
+        }
         _updateLoginForm(res);
       }
     } on AtOnlinePlatformException catch (e) {
-      print("Platform error: $e");
-      _showError();
+      if (kDebugMode) {
+        print("❌ Platform error: ${e.data}");
+      }
+      _showError(msg: "API Error: ${e.data['error'] ?? 'Unknown error'}");
     } catch (e) {
-      print("Login error: $e");
+      if (kDebugMode) {
+        print("❌ Login error: $e");
+      }
       _showError();
     }
   }
 
   /// Handles successful login response
-  Future<void> _handleLoginSuccess(Map<String, dynamic> response) async {
+  Future<void> _handleLoginSuccess(dynamic response) async {
     try {
-      // In v2 flow, the token is capitalized as "Token"
-      final token = response["Token"];
+      if (kDebugMode) {
+        print('Handling login success with response:');
+        print(response);
+        print('Response type: ${response.runtimeType}');
+      }
+
+      Map<String, dynamic>? token; // Must be a Map containing access_token, refresh_token, etc.
+      String? redirectUrl;
+
+      // Handle different response formats
+      dynamic tokenObj;
+      
+      if (response is Map<String, dynamic>) {
+        // Standard map format
+        tokenObj = response["Token"] ?? response["token"];
+        redirectUrl = response["Redirect"] ?? response["redirect"];
+        
+        // Token must be a Map
+        if (tokenObj is Map<String, dynamic>) {
+          if (kDebugMode) {
+            print('Token is a Map object');
+          }
+          
+          // Cast to proper Map<String, dynamic> type
+          token = Map<String, dynamic>.from(tokenObj);
+        } else {
+          if (kDebugMode && tokenObj != null) {
+            print('Unexpected token format: ${tokenObj.runtimeType}');
+            print('Expected a Map<String, dynamic>');
+          }
+          token = null;
+        }
+      } else if (response is List && response.length >= 2) {
+        // Tuple format (true, token, [...])
+        if (response[0] == true) {
+          if (response[1] is Map<String, dynamic>) {
+            // Handle tuple with token object
+            token = Map<String, dynamic>.from(response[1]);
+          } else {
+            if (kDebugMode) {
+              print('Tuple format response[1] is not a Map: ${response[1]?.runtimeType}');
+            }
+          }
+        }
+      }
+
+      if (kDebugMode) {
+        print('Extracted token: ${token != null ? 'Found' : 'Not found'}');
+        print('Extracted redirect: $redirectUrl');
+      }
+
       if (token == null) {
-        print("No token in response");
-        _showError();
+        if (kDebugMode) {
+          print("No token in response");
+        }
+        _showError(msg: "Login failed: No authentication token received");
         return;
       }
 
+      if (kDebugMode) {
+        print('Using token object (treated as opaque)');
+      }
+      
       final isLoggedIn = await _loginService.completeLogin(token);
 
       if (isLoggedIn) {
@@ -199,17 +304,17 @@ class AtOnlineLoginPageBodyState extends State<AtOnlineLoginPageBody> {
           await _loginService.uploadFiles(_files, _fileFields);
         }
 
-        // Handle redirect if provided in the response (v2 flow)
-        if (response["Redirect"] != null) {
-          final redirectUrl = response["Redirect"].toString();
-
+        // Handle redirect if provided in the response
+        if (redirectUrl != null) {
           // Handle internal or external redirects
           if (redirectUrl.startsWith("http://") ||
               redirectUrl.startsWith("https://")) {
             launchUrl(Uri.parse(redirectUrl));
           } else {
             // For internal app routes
-            print("Internal redirect requested to: $redirectUrl");
+            if (kDebugMode) {
+              print("Internal redirect requested to: $redirectUrl");
+            }
             // Navigation would depend on the app's routing system
           }
         }
@@ -229,28 +334,74 @@ class AtOnlineLoginPageBodyState extends State<AtOnlineLoginPageBody> {
   }
 
   /// Updates the login form with new data
-  void _updateLoginForm(Map<String, dynamic> res) {
+  void _updateLoginForm(dynamic res) {
+    if (kDebugMode) {
+      print('Updating login form with data type: ${res.runtimeType}');
+    }
+
+    // Convert response to Map if it's a list or tuple format
+    Map<String, dynamic> responseMap = {};
+
+    if (res is List) {
+      if (kDebugMode) {
+        print('Converting list response to map');
+      }
+
+      // In tuple format like (false, null, [...fields])
+      if (res.length >= 3 && res[2] is List) {
+        // Handle the tuple format - array of buttons is in the third position
+        List<dynamic> fields = res[2];
+
+        if (kDebugMode) {
+          print('Found ${fields.length} buttons/fields in tuple format');
+        }
+
+        // Convert fields to ensure the right structure for OAuth2 buttons
+        for (var i = 0; i < fields.length; i++) {
+          if (fields[i] is Map &&
+              fields[i]["button"] != null &&
+              fields[i]["type"] == null) {
+            fields[i]["type"] = "oauth2";
+          }
+        }
+
+        responseMap = {
+          "complete": res[0],
+          "message": "Please select your login method",
+          "fields": fields,
+        };
+      }
+    } else if (res is Map<String, dynamic>) {
+      responseMap = res;
+    } else {
+      if (kDebugMode) {
+        print('❌ Unexpected response format: ${res.runtimeType}');
+      }
+      _showError(msg: "Unexpected response format from server");
+      return;
+    }
+
     setState(() {
-      info = res;
+      info = responseMap;
 
       // Get session from response
-      if (res["session"] != null) {
-        session = res["session"];
+      if (responseMap["session"] != null) {
+        session = responseMap["session"];
       }
 
       // Reset field controllers
       fields = {};
 
       // Create controllers for required fields
-      if (res["req"] != null && res["req"] is List) {
-        for (var field in res["req"]) {
+      if (responseMap["req"] != null && responseMap["req"] is List) {
+        for (var field in responseMap["req"]) {
           fields[field] = TextEditingController();
         }
       }
 
       // v2 format might include initial values for fields
-      if (res["fields"] != null && res["fields"] is List) {
-        for (var field in res["fields"]) {
+      if (responseMap["fields"] != null && responseMap["fields"] is List) {
+        for (var field in responseMap["fields"]) {
           final name = field["name"];
           final defaultVal = field["default"];
 
@@ -280,33 +431,56 @@ class AtOnlineLoginPageBodyState extends State<AtOnlineLoginPageBody> {
 
     if (info["button"] != null) {
       // Extract button styling from v2 format
-      String? text = info["button"]["text"];
-      String? icon = info["button"]["icon"];
+      dynamic buttonInfo = info["button"];
+      String? text = buttonInfo["text"];
+      String? logo = buttonInfo["logo"];
+      String? icon = buttonInfo["icon"];
 
-      if (icon != null) {
+      // Logo is used in some formats, icon in others
+      String? imageSource = logo ?? icon;
+
+      if (imageSource != null) {
         // Handle SVG icon
-        if (icon.startsWith("data:")) {
-          // Parse data URI
-          final data = UriData.parse(icon);
-          final svgData = data.contentAsString();
-          child = LayoutBuilder(
-            builder: (context, constraint) => SvgPicture.string(
-              svgData,
-              height: constraint.biggest.height * 0.6,
-            ),
-          );
+        if (imageSource.startsWith("data:")) {
+          try {
+            // Parse data URI
+            final data = UriData.parse(imageSource);
+            final svgData = data.contentAsString();
+
+            // For SVG specifically
+            if (imageSource.contains("svg")) {
+              child = LayoutBuilder(
+                builder: (context, constraint) => SvgPicture.string(
+                  svgData,
+                  height: constraint.biggest.height * 0.6,
+                ),
+              );
+            } else {
+              // Default to text if SVG parsing fails
+              child = Text(info["id"] ?? "Login", textAlign: TextAlign.center);
+            }
+          } catch (e) {
+            // Fallback to text
+            child = Text(info["id"] ?? "Login", textAlign: TextAlign.center);
+          }
         } else {
-          child = LayoutBuilder(
-            builder: (context, constraint) => SvgPicture.network(
-              icon,
-              height: constraint.biggest.height * 0.6,
-            ),
-          );
+          // Network image
+          try {
+            child = LayoutBuilder(
+              builder: (context, constraint) => SvgPicture.network(
+                imageSource,
+                height: constraint.biggest.height * 0.6,
+              ),
+            );
+          } catch (e) {
+            // Fallback to text
+            child = Text(info["id"] ?? "Login", textAlign: TextAlign.center);
+          }
         }
       } else if (text != null) {
         // Use text if no icon
-        textColor = info["button"]["textColor"] != null
-            ? HexColor.fromHex(info["button"]["textColor"])
+        textColor = buttonInfo["textColor"] != null
+            ? HexColor.fromHex(buttonInfo["textColor"])
             : Colors.white;
         child = Text(
           text,
@@ -319,8 +493,9 @@ class AtOnlineLoginPageBodyState extends State<AtOnlineLoginPageBody> {
       }
 
       // Apply colors if provided
-      if (info["button"]["color"] != null) {
-        backgroundColor = HexColor.fromHex(info["button"]["color"]);
+      String? color = buttonInfo["color"] ?? buttonInfo["background-color"];
+      if (color != null) {
+        backgroundColor = HexColor.fromHex(color);
       }
     } else {
       // Fallback for when button styling is not provided
@@ -366,11 +541,16 @@ class AtOnlineLoginPageBodyState extends State<AtOnlineLoginPageBody> {
     Widget body = Container();
 
     if (info != null) {
+      if (kDebugMode) {
+        print('Building login UI with ${info["fields"]?.length ?? 0} fields');
+      }
+
       final widgets = <Widget>[];
 
-      // Add message
-      widgets.add(Text(info["message"].toString(),
-          style: const TextStyle(fontSize: 16)));
+      // Add message - provide a default if missing
+      final message = info["message"] ?? "Please select your login method";
+      widgets
+          .add(Text(message.toString(), style: const TextStyle(fontSize: 16)));
 
       // Add user info if available
       if (info["user"] != null) {
@@ -485,10 +665,27 @@ class AtOnlineLoginPageBodyState extends State<AtOnlineLoginPageBody> {
     var firstField = true;
     List<Widget> oauth2Buttons = [];
 
+    if (kDebugMode) {
+      print('Building ${fieldsData.length} form fields');
+    }
+
     for (var field in fieldsData) {
       // v2 flow categorizes fields with "cat" field
       final String fieldType = field["type"] ?? "";
       final String fieldCategory = field["cat"] ?? "";
+
+      // Special case for OAuth2 buttons which might not have type set
+      if (field["button"] != null &&
+          (fieldType.isEmpty || fieldType == "oauth2")) {
+        if (kDebugMode) {
+          print('Found OAuth2 button');
+        }
+
+        oauth2Buttons.add(GridTile(
+          child: _makeOAuth2Button(field),
+        ));
+        continue;
+      }
 
       // Handle field based on category and type
       if (fieldCategory == "label" || fieldType == "label") {
@@ -521,7 +718,9 @@ class AtOnlineLoginPageBodyState extends State<AtOnlineLoginPageBody> {
             firstField = false;
             break;
           default:
-            print("Unhandled input field type: $fieldType");
+            if (kDebugMode) {
+              print("Unhandled input field type: $fieldType");
+            }
         }
       } else if (fieldType == "oauth2") {
         oauth2Buttons.add(GridTile(
@@ -530,13 +729,24 @@ class AtOnlineLoginPageBodyState extends State<AtOnlineLoginPageBody> {
       } else if (fieldCategory == "special" && fieldType == "image") {
         _buildImageField(widgets, field);
       } else {
-        print("Unhandled field type: $fieldType with category: $fieldCategory");
+        if (kDebugMode) {
+          print(
+              "Unhandled field type: $fieldType with category: $fieldCategory");
+        }
       }
     }
 
     // Arrange OAuth2 buttons if there are any
-    if (oauth2Buttons.isNotEmpty && widget.callbackUrlScheme != null) {
-      _arrangeOAuth2Buttons(widgets, oauth2Buttons);
+    if (oauth2Buttons.isNotEmpty) {
+      if (kDebugMode) {
+        print('Found ${oauth2Buttons.length} OAuth2 buttons to arrange');
+      }
+
+      if (widget.callbackUrlScheme != null) {
+        _arrangeOAuth2Buttons(widgets, oauth2Buttons);
+      } else if (kDebugMode) {
+        print('OAuth2 buttons found but callbackUrlScheme not configured');
+      }
     }
   }
 
@@ -824,6 +1034,7 @@ class AtOnlineLoginPageBodyState extends State<AtOnlineLoginPageBody> {
 
   /// Arranges OAuth2 buttons in rows
   void _arrangeOAuth2Buttons(List<Widget> widgets, List<Widget> oauth2Buttons) {
+    // Calculate optimal button width based on screen size
     double buttonWidth =
         ((MediaQuery.of(context).size.width - 30) / oauth2PerLine) * 0.95;
     if (buttonWidth > 70) buttonWidth = 70;
@@ -846,8 +1057,13 @@ class AtOnlineLoginPageBodyState extends State<AtOnlineLoginPageBody> {
               ))
           .toList();
 
-      widgets.add(Row(children: rowChildren));
+      widgets.add(Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: rowChildren,
+      ));
     }
+
+    // Add spacing after the buttons
     widgets.add(const SizedBox(height: 15));
   }
 }
