@@ -1,3 +1,13 @@
+## [0.6.4] - October 29th 2025
+
+* Updated dependencies to latest versions
+* Fixed deprecation warnings:
+  * Changed deprecated `value` parameter to `initialValue` in DropdownButtonFormField widgets
+* Code quality improvements:
+  * Removed unnecessary type checks in login_service.dart (optAuthReq always returns AtOnlineApiResult)
+  * Simplified response handling logic
+* Updated atonline_api dependency to ^0.4.23
+
 ## [0.6.3] - March 22nd 2025
 
 * Optimized User Flow v2 API format implementation:

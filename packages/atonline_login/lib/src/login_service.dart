@@ -93,38 +93,25 @@ class DefaultLoginService implements LoginService {
 
       // Log the actual response data without masking
       try {
-        if (response is Map) {
-          print('Response data: ${jsonEncode(response)}');
-        } else if (response is List) {
-          print('Response data (list): ${jsonEncode(response)}');
-        } else if (response is AtOnlineApiResult) {
-          final data = response.data ?? response.res;
-          print('Response data (API result): ${jsonEncode(data)}');
-        } else {
-          print(
-              'Response data type not directly serializable: ${response.runtimeType}');
-        }
+        final data = response.data ?? response.res;
+        print('Response data (API result): ${jsonEncode(data)}');
       } catch (e) {
         print('Failed to serialize response: $e');
       }
     }
 
     // Convert AtOnlineApiResult to Map if needed
-    if (response is AtOnlineApiResult) {
-      if (kDebugMode) {
-        print('Converting AtOnlineApiResult to Map');
-      }
-
-      // Check if the data field is what we need
-      if (response.data != null) {
-        return response.data;
-      }
-
-      // Fallback to raw response
-      return response.res;
+    if (kDebugMode) {
+      print('Converting AtOnlineApiResult to Map');
     }
 
-    return response;
+    // Check if the data field is what we need
+    if (response.data != null) {
+      return response.data;
+    }
+
+    // Fallback to raw response
+    return response.res;
   }
 
   @override
@@ -257,18 +244,11 @@ class DefaultLoginService implements LoginService {
       if (kDebugMode) {
         print('📥 Dynamic options API response:');
         print(result);
+        print('Converting AtOnlineApiResult to Map for dynamic options');
       }
 
-      // Convert AtOnlineApiResult to Map if needed
-      if (result is AtOnlineApiResult) {
-        if (kDebugMode) {
-          print('Converting AtOnlineApiResult to Map for dynamic options');
-        }
-        // Access the data field from AtOnlineApiResult
-        return result.data;
-      }
-
-      return result;
+      // Access the data field from AtOnlineApiResult
+      return result.data;
     } catch (e) {
       if (kDebugMode) {
         print('❌ Error fetching dynamic options: $e');
