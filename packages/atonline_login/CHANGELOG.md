@@ -1,3 +1,7 @@
+## [0.6.5] - October 29th 2025
+
+* Updated atonline_api dependency to ^0.5.0
+
 ## [0.6.4] - October 29th 2025
 
 * Updated dependencies to latest versions
