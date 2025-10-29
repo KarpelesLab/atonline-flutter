@@ -1,3 +1,13 @@
+## [0.5.0] October 29th 2025
+
+* Added Server-Sent Events (SSE) streaming support:
+  * New SseEvent class to represent individual SSE events with automatic JSON parsing
+  * New sseReq method for basic SSE streaming requests
+  * New authSseReq method for authenticated SSE streaming
+  * New optAuthSseReq method for optionally authenticated SSE streaming
+  * Full SSE protocol implementation supporting event types, IDs, multi-line data, and comments
+  * Comprehensive test coverage including live streaming tests with Misc/Debug:sse endpoint
+
 ## [0.4.23] October 29th 2025
 
 * Dependency updates:

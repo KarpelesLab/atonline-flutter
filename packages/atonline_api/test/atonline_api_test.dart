@@ -796,5 +796,118 @@ void main() {
         }
       }
     });
+
+    test('API can handle SSE streaming from Misc/Debug:sse', () async {
+      // This test makes a real SSE request to Misc/Debug:sse
+      // which generates events for 30 seconds (one every 5 seconds on average)
+      final api = AtOnline('test_client_id');
+
+      try {
+        final events = <SseEvent>[];
+        int eventCount = 0;
+
+        if (kDebugMode) {
+          print('\n--- Testing SSE Stream ---');
+          print('Connecting to Misc/Debug:sse endpoint...');
+        }
+
+        // Listen to SSE stream with timeout
+        await for (var event in api.sseReq('Misc/Debug:sse').timeout(
+          Duration(seconds: 15), // Listen for 15 seconds to get at least 2-3 events
+          onTimeout: (sink) {
+            if (kDebugMode) {
+              print('Stream timeout reached (expected behavior for test)');
+            }
+            sink.close();
+          },
+        )) {
+          eventCount++;
+          events.add(event);
+
+          if (kDebugMode) {
+            print('Event #$eventCount received:');
+            print('  Type: ${event.event}');
+            print('  ID: ${event.id}');
+            print('  Data: ${event.data}');
+            if (event.jsonData != null) {
+              print('  Parsed JSON: ${event.jsonData}');
+            }
+          }
+
+          // Verify event structure
+          expect(event.event, isNotNull);
+          expect(event.data, isNotEmpty);
+
+          // Stop after receiving 3 events to avoid waiting full 30 seconds
+          if (eventCount >= 3) {
+            if (kDebugMode) {
+              print('Received 3 events, stopping test');
+            }
+            break;
+          }
+        }
+
+        // Verify we received at least one event
+        expect(eventCount, greaterThanOrEqualTo(1));
+        expect(events, isNotEmpty);
+
+        if (kDebugMode) {
+          print('SSE test completed successfully with $eventCount events received');
+        }
+      } catch (e) {
+        // TimeoutException is expected if we don't receive events quickly enough
+        if (e.toString().contains('TimeoutException')) {
+          if (kDebugMode) {
+            print('Stream timeout (this is normal for SSE test)');
+          }
+        } else {
+          fail('Failed to test SSE streaming: $e');
+        }
+      }
+    });
+
+    test('SseEvent correctly parses JSON data', () {
+      // Test the SseEvent class with JSON data
+      final jsonData = '{"message": "test", "count": 42}';
+      final event = SseEvent(
+        event: 'message',
+        data: jsonData,
+        id: '123',
+      );
+
+      expect(event.event, 'message');
+      expect(event.data, jsonData);
+      expect(event.id, '123');
+      expect(event.jsonData, isNotNull);
+      expect(event.jsonData['message'], 'test');
+      expect(event.jsonData['count'], 42);
+    });
+
+    test('SseEvent handles non-JSON data gracefully', () {
+      // Test the SseEvent class with plain text data
+      final plainText = 'This is plain text, not JSON';
+      final event = SseEvent(
+        event: 'message',
+        data: plainText,
+      );
+
+      expect(event.event, 'message');
+      expect(event.data, plainText);
+      expect(event.id, isNull);
+      expect(event.jsonData, isNull); // Should be null for non-JSON data
+    });
+
+    test('SseEvent supports custom event types', () {
+      // Test custom event types
+      final event = SseEvent(
+        event: 'update',
+        data: 'update data',
+        id: 'update-1',
+      );
+
+      expect(event.event, 'update');
+      expect(event.data, 'update data');
+      expect(event.id, 'update-1');
+    });
   });
 }

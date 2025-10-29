@@ -32,6 +32,38 @@ class AtOnlinePlatformException implements Exception {
   AtOnlinePlatformException(this.data);
 }
 
+/// Represents a single Server-Sent Event (SSE)
+class SseEvent {
+  /// The event type (defaults to "message" if not specified)
+  final String event;
+  /// The event data (can be multi-line)
+  final String data;
+  /// Optional event ID
+  final String? id;
+  /// Parsed JSON data if data is valid JSON, otherwise null
+  final dynamic jsonData;
+
+  SseEvent({
+    required this.event,
+    required this.data,
+    this.id,
+  }) : jsonData = _tryParseJson(data);
+
+  /// Attempts to parse data as JSON, returns null if parsing fails
+  static dynamic _tryParseJson(String data) {
+    try {
+      return json.decode(data);
+    } catch (e) {
+      return null;
+    }
+  }
+
+  @override
+  String toString() {
+    return 'SseEvent(event: $event, id: $id, data: $data)';
+  }
+}
+
 /// Represents pagination information for API responses
 class AtOnlinePaging {
   /// Total number of items available
@@ -831,11 +863,11 @@ class AtOnline with ChangeNotifier {
     notifyListeners();
   }
 
-  /// Updates cookies from a HTTP response
-  /// 
+  /// Updates cookies from HTTP response headers
+  ///
   /// Extracts Set-Cookie headers and stores them for future requests
-  void _updateCookie(http.Response response) {
-    final allSetCookie = response.headers['set-cookie'];
+  void _updateCookieFromHeaders(Map<String, String> headers) {
+    final allSetCookie = headers['set-cookie'];
 
     if (allSetCookie != null && allSetCookie.isNotEmpty) {
       // RFC 6265 requires multiple cookies to be sent in separate Set-Cookie headers,
@@ -871,6 +903,13 @@ class AtOnline with ChangeNotifier {
         }
       }
     }
+  }
+
+  /// Updates cookies from a HTTP response
+  ///
+  /// Wrapper for _updateCookieFromHeaders for backward compatibility
+  void _updateCookie(http.Response response) {
+    _updateCookieFromHeaders(response.headers);
   }
 
   /// Parses and stores a single cookie from a Set-Cookie header
@@ -909,16 +948,251 @@ class AtOnline with ChangeNotifier {
   }
 
   /// Generates a Cookie header value from stored cookies
-  /// 
+  ///
   /// @return Formatted cookie string for use in HTTP requests
   String _generateCookieHeader() {
     if (cookies.isEmpty) {
       return "";
     }
-    
+
     // Join all cookies with semicolons
     return cookies.entries
         .map((entry) => "${entry.key}=${entry.value}")
         .join('; ');
+  }
+
+  /// Parses an SSE stream from a StreamedResponse
+  ///
+  /// Handles the Server-Sent Events format:
+  /// - Lines starting with "event:", "data:", "id:" set event properties
+  /// - Empty lines signal the end of an event
+  /// - Comments (lines starting with ":") are ignored
+  ///
+  /// @param response The HTTP streamed response
+  /// @return Stream of parsed SSE events
+  Stream<SseEvent> _parseSseStream(http.StreamedResponse response) async* {
+    String currentEvent = "message";
+    String currentData = "";
+    String? currentId;
+
+    // Buffer for incomplete lines
+    String buffer = "";
+
+    // Listen to the response stream and parse SSE format
+    await for (var chunk in response.stream.transform(utf8.decoder)) {
+      buffer += chunk;
+
+      // Process complete lines
+      while (buffer.contains('\n')) {
+        int newlineIndex = buffer.indexOf('\n');
+        String line = buffer.substring(0, newlineIndex);
+        buffer = buffer.substring(newlineIndex + 1);
+
+        // Remove carriage return if present
+        if (line.endsWith('\r')) {
+          line = line.substring(0, line.length - 1);
+        }
+
+        // Empty line signals end of event
+        if (line.isEmpty) {
+          if (currentData.isNotEmpty) {
+            // Emit the event
+            yield SseEvent(
+              event: currentEvent,
+              data: currentData,
+              id: currentId,
+            );
+
+            // Reset for next event (but keep id)
+            currentEvent = "message";
+            currentData = "";
+            // Note: id persists across events unless explicitly changed
+          }
+          continue;
+        }
+
+        // Skip comments (lines starting with ":")
+        if (line.startsWith(':')) {
+          continue;
+        }
+
+        // Parse field: value format
+        int colonIndex = line.indexOf(':');
+        if (colonIndex > 0) {
+          String field = line.substring(0, colonIndex);
+          String value = line.substring(colonIndex + 1);
+
+          // Remove leading space from value (SSE spec)
+          if (value.startsWith(' ')) {
+            value = value.substring(1);
+          }
+
+          switch (field) {
+            case 'event':
+              currentEvent = value;
+              break;
+            case 'data':
+              if (currentData.isNotEmpty) {
+                currentData += '\n';
+              }
+              currentData += value;
+              break;
+            case 'id':
+              currentId = value;
+              break;
+            case 'retry':
+              // Retry field is ignored for now
+              break;
+          }
+        }
+      }
+    }
+
+    // Handle any remaining data when stream closes
+    if (currentData.isNotEmpty) {
+      yield SseEvent(
+        event: currentEvent,
+        data: currentData,
+        id: currentId,
+      );
+    }
+  }
+
+  /// Makes an SSE streaming request to the AtOnline API
+  ///
+  /// Sets the Accept header to "text/event-stream" and returns a stream
+  /// of parsed SSE events. The stream will emit events as they arrive and
+  /// complete when the connection is closed.
+  ///
+  /// @param path The API endpoint path
+  /// @param method HTTP method (GET, POST, etc.)
+  /// @param body Request body (will be JSON encoded)
+  /// @param headers Additional HTTP headers
+  /// @param context Context parameters to send with the request
+  /// @return Stream of SSE events
+  Stream<SseEvent> sseReq(String path,
+      {String method = "GET",
+      dynamic body,
+      Map<String, String>? headers,
+      Map<String, String>? context}) async* {
+    if (kDebugMode) {
+      print("Running SSE $method $path");
+    }
+
+    // Prepare headers with SSE accept type
+    headers ??= {};
+    headers["Accept"] = "text/event-stream";
+
+    // Prepare request parameters
+    var _ctx = await _prepareRequestContext(context, method, body);
+
+    // Add cookies and client ID
+    if (cookies.isNotEmpty) {
+      headers['cookie'] = _generateCookieHeader();
+    }
+    headers["Sec-ClientId"] = appId;
+
+    // Construct the full URL with query parameters
+    Uri urlPath = _buildRequestUrl(path, _ctx);
+
+    if (kDebugMode) {
+      print("SSE $method request: $urlPath");
+    }
+
+    // Create the HTTP request
+    var request = http.Request(method, urlPath);
+
+    // Add headers
+    headers.forEach((String k, String v) {
+      request.headers[k] = v;
+    });
+
+    // Add body if present
+    if (body != null && method != "GET") {
+      request.body = json.encode(body);
+      request.headers["Content-Type"] = "application/json";
+    }
+
+    // Send request
+    var streamedResponse = await http.Client().send(request);
+
+    // Update cookies from response headers (without consuming the stream)
+    _updateCookieFromHeaders(streamedResponse.headers);
+
+    // Check if response is SSE
+    String? contentType = streamedResponse.headers["content-type"];
+    if (contentType != null && contentType.startsWith("text/event-stream")) {
+      // Parse and yield SSE events
+      await for (var event in _parseSseStream(streamedResponse)) {
+        yield event;
+      }
+    } else {
+      // Not an SSE response
+      throw AtOnlineNetworkException(
+          "Expected text/event-stream response, got: $contentType");
+    }
+  }
+
+  /// Makes an authenticated SSE streaming request to the AtOnline API
+  ///
+  /// Automatically adds Bearer token authentication header and sets Accept
+  /// header to "text/event-stream". Returns a stream of parsed SSE events.
+  ///
+  /// @param path The API endpoint path
+  /// @param method HTTP method (GET, POST, etc.)
+  /// @param body Request body
+  /// @param headers Additional HTTP headers
+  /// @param context Context parameters
+  /// @return Stream of SSE events
+  Stream<SseEvent> authSseReq(String path,
+      {String method = "GET",
+      dynamic body,
+      Map<String, String>? headers,
+      Map<String, String>? context}) async* {
+    if (headers == null) {
+      headers = <String, String>{};
+    }
+    // Add authorization header with token
+    headers["Authorization"] = "Bearer " + await token();
+
+    await for (var event in sseReq(path,
+        method: method, body: body, headers: headers, context: context)) {
+      yield event;
+    }
+  }
+
+  /// Makes an optionally authenticated SSE streaming request to the AtOnline API
+  ///
+  /// Tries to add authentication but continues if authentication fails.
+  /// Sets Accept header to "text/event-stream" and returns a stream of
+  /// parsed SSE events.
+  ///
+  /// @param path The API endpoint path
+  /// @param method HTTP method (GET, POST, etc.)
+  /// @param body Request body
+  /// @param headers Additional HTTP headers
+  /// @param context Context parameters
+  /// @return Stream of SSE events
+  Stream<SseEvent> optAuthSseReq(String path,
+      {String method = "GET",
+      dynamic body,
+      Map<String, String>? headers,
+      Map<String, String>? context}) async* {
+    try {
+      if (headers == null) {
+        headers = <String, String>{};
+      }
+      // Try to add authorization but continue even if it fails
+      headers["Authorization"] = "Bearer " + await token();
+    } on AtOnlineLoginException {
+      // Continue without authentication
+    } on AtOnlinePlatformException {
+      // Continue without authentication
+    }
+
+    await for (var event in sseReq(path,
+        method: method, body: body, headers: headers, context: context)) {
+      yield event;
+    }
   }
 }
