@@ -1,3 +1,15 @@
+## [0.4.23] October 29th 2025
+
+* Dependency updates:
+  * Updated intl from ^0.19.0 to ^0.20.2 (required by flutter_localizations)
+  * Updated http from ^1.2.2 to ^1.5.0
+  * Updated app_links from ^6.3.2 to ^6.4.1
+  * Updated url_launcher from ^6.3.0 to ^6.3.2
+  * Updated flutter_secure_storage from ^9.2.2 to ^9.2.4
+  * Updated build_runner from ^2.4.8 to ^2.10.1
+  * Updated mockito from ^5.4.4 to ^5.5.1
+  * Various other transitive dependency updates
+
 ## [0.4.22] March 22nd 2025
 
 * Improved API method type safety:
