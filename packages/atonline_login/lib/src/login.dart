@@ -584,7 +584,8 @@ class AtOnlineLoginPageBodyState extends State<AtOnlineLoginPageBody> {
 
     // In v2 flow, this triggers the OAuth2 flow by sending the provider id and session
     // For the redirect_uri, use the callback scheme provided by the app
-    final redirectUri = "${widget.callbackUrlScheme}://";
+    // Note: flutter_web_auth_2 expects scheme:/ (single slash), not scheme://
+    final redirectUri = "${widget.callbackUrlScheme}:/";
 
     if (kDebugMode) {
       print('OAuth2 login with provider ${info["id"]}');

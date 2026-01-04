@@ -1,3 +1,9 @@
+## [0.6.8] - January 4th 2026
+
+* Fixed OAuth2 redirect_uri format to use single slash (scheme:/) instead of double slash (scheme://)
+  * This restores compatibility with flutter_web_auth_2 expected format
+  * Regression was introduced in 0.6.3
+
 ## [0.6.7] - January 4th 2026
 
 * Updated SDK constraint to >=3.0.0 <4.0.0
