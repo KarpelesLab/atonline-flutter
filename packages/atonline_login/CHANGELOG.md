@@ -1,3 +1,9 @@
+## [0.6.7] - January 4th 2026
+
+* Updated SDK constraint to >=3.0.0 <4.0.0
+* Updated atonline_api dependency to ^0.5.1
+* Updated all dependencies to latest compatible versions
+
 ## [0.6.6] - January 4th 2026
 
 * Fixed OAuth2 authentication flow that was broken in 0.6.2
