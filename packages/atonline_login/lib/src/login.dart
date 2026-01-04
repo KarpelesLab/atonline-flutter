@@ -5,6 +5,7 @@ import 'package:atonline_api/atonline_api.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:flutter_web_auth_2/flutter_web_auth_2.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import 'hexcolor.dart';
@@ -90,28 +91,22 @@ class AtOnlineLoginPageBodyState extends State<AtOnlineLoginPageBody> {
     }
 
     try {
-      // Launch the URL directly instead of using WebAuthService
-      final launched = await launchUrl(
-        Uri.parse(url),
-        mode: LaunchMode.externalApplication,
+      final result = await FlutterWebAuth2.authenticate(
+        url: url,
+        callbackUrlScheme: widget.callbackUrlScheme!,
       );
 
-      if (!launched) {
-        _showError(msg: "Could not launch the authentication URL.");
+      final uri = Uri.parse(result);
+      final queryParams = uri.queryParameters;
+
+      if (queryParams["session"] == null) {
+        // No session returned - user may have cancelled
+        _showError(msg: "Authentication was cancelled or failed.");
         return;
       }
 
-      // This approach requires the app to handle the callback URL
-      // through app links / universal links / deep links
-      // Since we can't handle the callback here, we'll just continue with empty session
-
-      // In v2 flow, the callback to the app would include a session
-      // This is a placeholder - in a real implementation, you would extract
-      // the session from the callback URL
-      // For now, we reset the session to empty to start a new flow
-      setState(() {
-        session = "";
-      });
+      // Update session from callback and continue the flow
+      session = queryParams["session"]!;
       _submitData(override: {});
     } catch (e) {
       _showError(msg: "Operation has been cancelled: $e");

@@ -1,3 +1,9 @@
+## [0.6.6] - January 4th 2026
+
+* Fixed OAuth2 authentication flow that was broken in 0.6.2
+  * Restored flutter_web_auth_2 dependency for proper OAuth2 callback handling
+  * FlutterWebAuth2.authenticate() now properly waits for the OAuth callback before continuing
+
 ## [0.6.5] - October 29th 2025
 
 * Updated atonline_api dependency to ^0.5.0
