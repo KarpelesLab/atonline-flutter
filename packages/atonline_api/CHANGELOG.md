@@ -1,3 +1,15 @@
+## [0.5.1] January 4th 2026
+
+* Dependency updates:
+  * Updated app_links from ^6.3.2 to ^7.0.0
+  * Updated flutter_secure_storage from ^9.2.2 to ^10.0.0
+  * Updated mime from ^1.0.5 to ^2.0.0
+  * Updated http to 1.6.0
+  * Updated mockito to 5.6.1
+  * Updated build_runner to 2.10.4
+  * Removed discontinued js package (transitive dependency)
+* Fixed test compatibility with flutter_secure_storage 10.0.0 binding requirements
+
 ## [0.5.0] October 29th 2025
 
 * Added Server-Sent Events (SSE) streaming support:
